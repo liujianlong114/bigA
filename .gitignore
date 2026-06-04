@@ -1,0 +1,27 @@
+# Binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Data
+/data/
+*.db
+
+# Tools
+.tools/
+
+# Local env
+.env
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+
+# Env
+.env
+.env.local
