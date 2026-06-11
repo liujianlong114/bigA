@@ -26,12 +26,14 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   void _onScroll() {
+    if (!mounted || !_scrollCtrl.hasClients) return;
     if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
       context.read<AppState>().loadMoreStocks();
     }
   }
 
   void _onListScroll() {
+    if (!mounted || !_listScrollCtrl.hasClients) return;
     if (_listScrollCtrl.position.pixels >= _listScrollCtrl.position.maxScrollExtent - 120) {
       context.read<AppState>().loadMoreStocks();
     }

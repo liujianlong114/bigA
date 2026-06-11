@@ -43,7 +43,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
       onSecondary: Colors.white,
       error: AppColors.up,
       onError: Colors.white,
-      surface: isDark ? const Color(0x1FFFFFFF) : const Color(0xFFF2F2F7),
+      surface: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
       onSurface: glass.labelPrimary,
     ),
     fontFamily: '.AppleSystemUIFont',

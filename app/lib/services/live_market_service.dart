@@ -25,30 +25,35 @@ class LiveMarketService {
       connected = true;
       _sub = _channel!.stream.listen(
         (raw) {
-          final msg = jsonDecode(raw as String) as Map<String, dynamic>;
-          final type = msg['type'] as String? ?? '';
-          if (type == 'meta' || type == 'snapshot_meta') {
+          try {
+            if (raw is! String) return;
+            final msg = jsonDecode(raw) as Map<String, dynamic>;
+            final type = msg['type'] as String? ?? '';
+            if (type == 'meta' || type == 'snapshot_meta') {
+              marketOpen = msg['market_open'] == true;
+              return;
+            }
+            if (type != 'quotes') return;
             marketOpen = msg['market_open'] == true;
-            return;
+            final data = msg['data'];
+            if (data is! List) return;
+            for (final item in data) {
+              if (item is! Map<String, dynamic>) continue;
+              final code = item['code']?.toString() ?? '';
+              if (code.isEmpty) continue;
+              _quotes[code] = StockBrief(
+                code: code,
+                name: item['name']?.toString() ?? '',
+                price: _d(item['price']),
+                changePct: _d(item['change_pct']),
+                board: item['board']?.toString() ?? '',
+                boardName: item['board_name']?.toString() ?? '',
+              );
+            }
+            onUpdate(_quotes, marketOpen);
+          } catch (_) {
+            // 忽略单条脏数据，避免 WS 流中断
           }
-          if (type != 'quotes') return;
-          marketOpen = msg['market_open'] == true;
-          final data = msg['data'];
-          if (data is! List) return;
-          for (final item in data) {
-            if (item is! Map<String, dynamic>) continue;
-            final code = item['code']?.toString() ?? '';
-            if (code.isEmpty) continue;
-            _quotes[code] = StockBrief(
-              code: code,
-              name: item['name']?.toString() ?? '',
-              price: _d(item['price']),
-              changePct: _d(item['change_pct']),
-              board: item['board']?.toString() ?? '',
-              boardName: item['board_name']?.toString() ?? '',
-            );
-          }
-          onUpdate(_quotes, marketOpen);
         },
         onError: (_) {
           connected = false;
@@ -56,7 +61,7 @@ class LiveMarketService {
         onDone: () {
           connected = false;
         },
-        cancelOnError: true,
+        cancelOnError: false,
       );
     } catch (_) {
       connected = false;

@@ -55,11 +55,14 @@ class ApiService {
       throw ApiException('接口异常 (${res.statusCode})，请确认后端 :8080 已启动');
     }
     final body = jsonDecode(raw);
+    if (body is! Map<String, dynamic>) {
+      throw ApiException('响应格式异常 (${res.statusCode})');
+    }
     if (res.statusCode >= 400) {
-      final msg = body is Map ? (body['error'] ?? body['reject_reason'] ?? res.body) : res.body;
+      final msg = body['error'] ?? body['reject_reason'] ?? res.body;
       throw ApiException(msg.toString());
     }
-    return body as Map<String, dynamic>;
+    return body;
   }
 
   Future<bool> health() async {

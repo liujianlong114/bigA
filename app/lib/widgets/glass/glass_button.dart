@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../animations/glass_transitions.dart';
 import '../../layout/app_breakpoints.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/glass_theme.dart';
@@ -88,6 +87,6 @@ class GlassButton extends StatelessWidget {
       child = SizedBox(width: double.infinity, child: child);
     }
 
-    return IosTapScale(onTap: loading ? null : onPressed, child: child);
+    return surface;
   }
 }

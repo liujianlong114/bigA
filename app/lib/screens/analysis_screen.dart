@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../layout/responsive_page.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/glass_theme.dart';
-import '../theme/glass_tokens.dart';
 import '../widgets/components.dart';
 
 class AnalysisScreen extends StatefulWidget {
@@ -38,19 +36,20 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       loading = true;
       error = null;
     });
-    final api = context.read<AppState>().api;
+    final state = context.read<AppState>();
     try {
-      final code = context.read<AppState>().selectedCode;
+      final code = state.selectedCode;
       final results = await Future.wait([
-        api.marketAnalysis(),
-        api.portfolioAnalysis(),
-        api.anomalies(),
-        api.dailyReport(),
-        api.predict(code),
+        state.api.marketAnalysis(),
+        state.api.portfolioAnalysis(),
+        state.api.anomalies(),
+        state.api.dailyReport(),
+        state.api.predict(code),
       ]);
       if (!mounted) return;
       setState(() {
@@ -180,7 +179,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('评分 ${predict!['score']} | 信号 ${predict!['signal']}'),
-                    Text('1日上涨概率 ${((predict!['prob_up_1d'] as num) * 100).toStringAsFixed(1)}%'),
+                    Text(
+                      '1日上涨概率 ${(((predict!['prob_up_1d'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%',
+                    ),
                   ],
                 ),
               ),

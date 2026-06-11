@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -267,7 +266,13 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadBoardStats() async {
     final j = await api.boardStats();
-    boardCounts = (j['counts'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) ?? {};
+    boardCounts = (j['counts'] as Map?)?.map(
+          (k, v) => MapEntry(
+            k.toString(),
+            v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0,
+          ),
+        ) ??
+        {};
     boardNames = (j['names'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {'all': '全部'};
     notifyListeners();
   }
