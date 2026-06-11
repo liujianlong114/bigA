@@ -9,4 +9,6 @@ export 'glass/glass_surface.dart';
 export 'glass/glass_text_field.dart';
 export 'section_header.dart';
 export 'stock_list_tile.dart';
+export '../layout/responsive_page.dart';
+export 'theme_mode_switch.dart';
 export 'common.dart';

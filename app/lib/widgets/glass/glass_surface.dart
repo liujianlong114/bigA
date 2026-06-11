@@ -1,8 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 
 /// 磨砂玻璃表面 — 核心可复用组件
+///
+/// [frosted] 为 true 时使用 BackdropFilter（适合导航栏、大卡片，数量应少）；
+/// 为 false 时使用纯色半透明（适合列表行、芯片等高频组件）。
 class GlassSurface extends StatelessWidget {
   final Widget? child;
   final double blur;
@@ -10,12 +14,13 @@ class GlassSurface extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final Color? tint;
+  final Color? tintTop;
+  final Color? tintBottom;
   final Color? borderColor;
   final double? width;
   final double? height;
-  final Gradient? gradient;
   final VoidCallback? onTap;
-  final bool interactive;
+  final bool frosted;
 
   const GlassSurface({
     super.key,
@@ -25,12 +30,13 @@ class GlassSurface extends StatelessWidget {
     this.padding,
     this.margin,
     this.tint,
+    this.tintTop,
+    this.tintBottom,
     this.borderColor,
     this.width,
     this.height,
-    this.gradient,
     this.onTap,
-    this.interactive = false,
+    this.frosted = true,
   });
 
   factory GlassSurface.card({
@@ -42,10 +48,30 @@ class GlassSurface extends StatelessWidget {
   }) =>
       GlassSurface(
         key: key,
+        frosted: true,
+        blur: GlassTokens.blurMedium,
         padding: padding ?? const EdgeInsets.all(16),
         margin: margin,
         onTap: onTap,
-        interactive: onTap != null,
+        child: child,
+      );
+
+  factory GlassSurface.flat({
+    Key? key,
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+    EdgeInsetsGeometry? margin,
+    double radius = GlassTokens.radiusMd,
+    VoidCallback? onTap,
+  }) =>
+      GlassSurface(
+        key: key,
+        frosted: false,
+        blur: 0,
+        radius: radius,
+        padding: padding,
+        margin: margin,
+        onTap: onTap,
         child: child,
       );
 
@@ -54,52 +80,68 @@ class GlassSurface extends StatelessWidget {
     required Widget child,
     bool selected = false,
     VoidCallback? onTap,
-  }) =>
-      GlassSurface(
-        key: key,
-        blur: GlassTokens.blurLight,
-        radius: GlassTokens.radiusMd,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        tint: selected ? const Color(0xCC3B82F6) : GlassTokens.glassFillLight,
-        borderColor: selected ? const Color(0x883B82F6) : GlassTokens.glassBorder,
-        onTap: onTap,
-        interactive: true,
-        child: child,
-      );
+    required BuildContext context,
+  }) {
+    final g = GlassTheme.of(context);
+    return GlassSurface(
+      key: key,
+      frosted: false,
+      blur: 0,
+      radius: GlassTokens.radiusMd,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      tint: selected ? g.navSelected.withValues(alpha: 0.22) : null,
+      borderColor: selected ? g.navSelected.withValues(alpha: 0.35) : null,
+      onTap: onTap,
+      child: child,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final content = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: GlassTokens.blurFilter(blur),
-        child: AnimatedContainer(
-          duration: GlassTokens.quickDuration,
-          curve: GlassTokens.iosEmphasized,
-          width: width,
-          height: height,
-          padding: padding,
-          decoration: gradient != null
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
-                  gradient: gradient,
-                  border: Border.all(color: borderColor ?? GlassTokens.glassBorder),
-                )
-              : GlassTokens.glassDecoration(
-                  radius: radius,
-                  fill: tint,
-                  borderColor: borderColor,
-                ),
-          child: child,
-        ),
-      ),
+    final decoration = GlassTokens.glassDecoration(
+      context,
+      radius: radius,
+      fill: tint ?? tintTop,
+      fillTop: tintTop,
+      fillBottom: tintBottom,
+      borderColor: borderColor,
+      frosted: frosted,
     );
 
-    Widget wrapped = content;
+    Widget panel = Container(
+      width: width,
+      height: height,
+      padding: padding,
+      decoration: decoration,
+      child: child,
+    );
+
+    if (frosted && blur > 0) {
+      panel = ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: GlassTokens.blurFilter(blur),
+          child: panel,
+        ),
+      );
+    } else {
+      panel = ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: panel,
+      );
+    }
+
+    Widget wrapped = panel;
     if (onTap != null) {
       wrapped = Material(
         color: Colors.transparent,
-        child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: content),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(radius),
+          splashColor: Colors.white24,
+          highlightColor: Colors.white10,
+          child: panel,
+        ),
       );
     }
 

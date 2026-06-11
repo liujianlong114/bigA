@@ -25,7 +25,9 @@ class _KlineChartState extends State<KlineChart> {
     if (widget.bars.isEmpty) {
       return SizedBox(
         height: widget.height,
-        child: const Center(child: Text('暂无 K 线数据')),
+        child: Center(
+          child: Text('暂无 K 线数据', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        ),
       );
     }
 

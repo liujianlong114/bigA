@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 import 'glass_surface.dart';
 
@@ -26,8 +27,8 @@ class GlassTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassSurface(
-      blur: GlassTokens.blurLight,
+    final g = GlassTheme.of(context);
+    return GlassSurface.flat(
       radius: GlassTokens.radiusMd,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: TextField(
@@ -36,18 +37,18 @@ class GlassTextField extends StatelessWidget {
         textInputAction: textInputAction,
         onSubmitted: onSubmitted,
         onChanged: onChanged,
-        style: const TextStyle(color: Color(0xFF0F172A), fontSize: 15),
+        style: TextStyle(color: g.labelPrimary, fontSize: 15),
         decoration: InputDecoration(
           labelText: labelText,
           hintText: hintText,
-          prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: const Color(0xFF64748B)) : null,
+          prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: g.labelSecondary) : null,
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           filled: false,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          labelStyle: const TextStyle(color: Color(0xFF64748B)),
-          hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.35)),
+          labelStyle: TextStyle(color: g.labelSecondary),
+          hintStyle: TextStyle(color: g.labelSecondary.withValues(alpha: 0.7)),
         ),
       ),
     );

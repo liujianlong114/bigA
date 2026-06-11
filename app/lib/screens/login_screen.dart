@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../theme/glass_theme.dart';
 import '../widgets/components.dart';
+import '../widgets/theme_mode_switch.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -59,42 +61,57 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: GlassCard(
-                  margin: EdgeInsets.zero,
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'bigA 模拟盘',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.5,
-                            ),
-                      ),
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: ThemeModeSwitch(),
+                ),
+              ),
+              Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: GlassCard(
+                      margin: EdgeInsets.zero,
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'bigA 模拟盘',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.5,
+                                  color: GlassTheme.of(context).labelPrimary,
+                                ),
+                          ),
                       const SizedBox(height: 8),
                       Text(
                         '注册独立账户，100 万模拟资金起步。不知道股票代码？首页可按板块浏览全市场。',
-                        style: TextStyle(color: Colors.black.withValues(alpha: 0.5), height: 1.4),
+                        style: TextStyle(color: GlassTheme.of(context).labelSecondary, height: 1.4),
                       ),
                       const SizedBox(height: 24),
-                      GlassSurface(
+                      GlassSurface.flat(
                         radius: 14,
                         padding: const EdgeInsets.all(4),
                         child: TabBar(
                           controller: _tabs,
                           indicator: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
-                            color: AppColors.primary.withValues(alpha: 0.12),
+                            color: (Theme.of(context).brightness == Brightness.dark
+                                    ? AppColors.primaryDark
+                                    : AppColors.primary)
+                                .withValues(alpha: 0.18),
                           ),
-                          labelColor: AppColors.primary,
-                          unselectedLabelColor: const Color(0xFF64748B),
+                          labelColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : AppColors.primary,
+                          unselectedLabelColor: GlassTheme.of(context).labelSecondary,
                           dividerColor: Colors.transparent,
                           tabs: const [
                             Tab(text: '登录'),
@@ -124,11 +141,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         expanded: true,
                         onPressed: _busy ? null : () => state.enterGuest(),
                       ),
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),

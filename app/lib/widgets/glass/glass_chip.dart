@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 import 'glass_surface.dart';
 
@@ -20,13 +21,15 @@ class GlassChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = selectedColor ?? const Color(0xFF2563EB);
+    final g = GlassTheme.of(context);
+    final accent = selectedColor ?? g.navSelected;
     return GlassSurface(
-      blur: GlassTokens.blurLight,
+      frosted: false,
+      blur: 0,
       radius: GlassTokens.radiusMd,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      tint: selected ? accent.withValues(alpha: 0.85) : GlassTokens.glassFillLight,
-      borderColor: selected ? accent.withValues(alpha: 0.5) : GlassTokens.glassBorder,
+      tint: selected ? accent.withValues(alpha: 0.22) : null,
+      borderColor: selected ? accent.withValues(alpha: 0.35) : null,
       onTap: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -36,7 +39,7 @@ class GlassChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? Colors.white : const Color(0xFF334155),
+              color: selected ? Colors.white : g.labelPrimary,
             ),
           ),
           if (trailing != null) ...[const SizedBox(width: 4), trailing!],

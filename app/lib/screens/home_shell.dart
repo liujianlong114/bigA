@@ -4,7 +4,9 @@ import '../animations/glass_transitions.dart';
 import '../layout/app_breakpoints.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../theme/glass_theme.dart';
 import '../widgets/components.dart';
+import '../widgets/theme_mode_switch.dart';
 import 'analysis_screen.dart';
 import 'history_screen.dart';
 import 'market_screen.dart';
@@ -50,7 +52,8 @@ class _HomeShellState extends State<HomeShell> {
               onIndexChanged: (i) => setState(() => _index = i),
               state: state,
               child: IosAnimatedSwitcher(
-                child: KeyedSubtree(key: ValueKey(_index), child: _pages[_index]),
+                activeIndex: _index,
+                child: _pages[_index],
               ),
             );
           }
@@ -59,6 +62,7 @@ class _HomeShellState extends State<HomeShell> {
             onIndexChanged: (i) => setState(() => _index = i),
             state: state,
             child: IosAnimatedSwitcher(
+              activeIndex: _index,
               child: KeyedSubtree(key: ValueKey(_index), child: _pages[_index]),
             ),
           );
@@ -123,26 +127,33 @@ class _DesktopShell extends StatelessWidget {
                 selectedIndex: index,
                 onSelected: onIndexChanged,
                 items: _navItems,
-                header: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'bigA',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.5),
-                    ),
-                    Text('模拟盘', style: TextStyle(color: Colors.black.withValues(alpha: 0.45), fontSize: 13)),
-                  ],
+                header: Builder(
+                  builder: (context) {
+                    final g = GlassTheme.of(context);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'bigA',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: g.labelPrimary),
+                        ),
+                        Text('模拟盘', style: TextStyle(color: g.labelSecondary, fontSize: 13)),
+                      ],
+                    );
+                  },
                 ),
                 footer: _UserFooter(state: state),
               ),
             ),
             Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _DesktopTopBar(state: state, title: _navItems[index].label),
-                  Expanded(
-                    child: GlassLoadingOverlay(show: state.loading, child: child),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 24, 0),
+                    child: _DesktopTopBar(state: state, title: _navItems[index].label),
                   ),
+                  Expanded(child: GlassLoadingOverlay(show: state.loading, child: child)),
                 ],
               ),
             ),
@@ -167,11 +178,12 @@ class _DesktopTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = GlassTheme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 16, 8),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+          Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: g.labelPrimary)),
           const Spacer(),
           ..._AppActions(state: state).build(context),
         ],
@@ -193,6 +205,7 @@ class _AppActions {
         color: state.backendOk ? AppColors.down : const Color(0xFFFB923C),
         size: 20,
       ),
+      const ThemeModeSwitch(),
       IconButton(
         icon: const Icon(Icons.refresh_rounded),
         onPressed: state.loading ? null : () => state.refreshAll(),
@@ -222,7 +235,7 @@ class _UserFooter extends StatelessWidget {
         ? (state.currentUser!.nickname.isNotEmpty ? state.currentUser!.nickname : state.currentUser!.username)
         : (state.isGuest ? '游客' : '');
     if (name.isEmpty) return const SizedBox.shrink();
-    return GlassSurface(
+    return GlassSurface.flat(
       radius: 14,
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -233,7 +246,7 @@ class _UserFooter extends StatelessWidget {
             child: Text(name.characters.first, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+          Expanded(child: Text(name, style: TextStyle(fontWeight: FontWeight.w500, color: GlassTheme.of(context).labelPrimary), overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

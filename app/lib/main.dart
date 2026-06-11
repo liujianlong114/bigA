@@ -19,11 +19,15 @@ class BigAApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(ApiService())..init(),
-      child: MaterialApp(
-        title: 'bigA 模拟盘',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(),
-        home: const AuthGate(),
+      child: Consumer<AppState>(
+        builder: (context, state, _) => MaterialApp(
+          title: 'bigA 模拟盘',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppLightTheme(),
+          darkTheme: buildAppDarkTheme(),
+          themeMode: state.themeMode,
+          home: const AuthGate(),
+        ),
       ),
     );
   }

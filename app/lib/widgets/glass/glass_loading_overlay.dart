@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 
 class GlassLoadingOverlay extends StatelessWidget {
@@ -16,6 +18,8 @@ class GlassLoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = GlassTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         child,
@@ -23,24 +27,27 @@ class GlassLoadingOverlay extends StatelessWidget {
           Positioned.fill(
             child: ClipRect(
               child: BackdropFilter(
-                filter: GlassTokens.blurFilter(GlassTokens.blurLight),
+                filter: GlassTokens.blurFilter(GlassTokens.blurMedium),
                 child: Container(
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.25),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                      decoration: GlassTokens.glassDecoration(radius: GlassTokens.radiusLg),
+                      decoration: GlassTokens.glassDecoration(context, radius: GlassTokens.radiusLg),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 32,
                             height: 32,
-                            child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF2563EB)),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: isDark ? AppColors.primaryDark : AppColors.primary,
+                            ),
                           ),
                           if (message != null) ...[
                             const SizedBox(height: 12),
-                            Text(message!, style: const TextStyle(color: Color(0xFF475569), fontSize: 14)),
+                            Text(message!, style: TextStyle(color: g.labelSecondary, fontSize: 14)),
                           ],
                         ],
                       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../animations/glass_transitions.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 import 'glass_surface.dart';
 
@@ -58,6 +59,7 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = GlassTheme.of(context);
     return IosTapScale(
       onTap: onTap,
       child: AnimatedContainer(
@@ -66,7 +68,7 @@ class _NavButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(GlassTokens.radiusMd),
-          color: selected ? const Color(0x332563EB) : Colors.transparent,
+          color: selected ? g.navSelectedBg : Colors.transparent,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -74,7 +76,7 @@ class _NavButton extends StatelessWidget {
             Icon(
               selected ? (item.selectedIcon ?? item.icon) : item.icon,
               size: 22,
-              color: selected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+              color: selected ? g.navSelected : g.navUnselected,
             ),
             const SizedBox(height: 2),
             Text(
@@ -82,7 +84,7 @@ class _NavButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                color: selected ? g.navSelected : g.navUnselected,
               ),
             ),
           ],
@@ -136,21 +138,21 @@ class GlassSidebar extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(GlassTokens.radiusMd),
-                        color: selected ? const Color(0x402563EB) : Colors.transparent,
-                        border: selected ? Border.all(color: const Color(0x332563EB)) : null,
+                        color: selected ? GlassTheme.of(context).navSelectedBg : Colors.transparent,
+                        border: selected ? Border.all(color: GlassTheme.of(context).navSelected.withValues(alpha: 0.25)) : null,
                       ),
                       child: Row(
                         children: [
                           Icon(
                             selected ? (item.selectedIcon ?? item.icon) : item.icon,
-                            color: selected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                            color: selected ? GlassTheme.of(context).navSelected : GlassTheme.of(context).navUnselected,
                           ),
                           const SizedBox(width: 12),
                           Text(
                             item.label,
                             style: TextStyle(
                               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                              color: selected ? const Color(0xFF1E40AF) : const Color(0xFF475569),
+                              color: selected ? GlassTheme.of(context).navSelected : GlassTheme.of(context).labelPrimary,
                             ),
                           ),
                         ],

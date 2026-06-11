@@ -3,25 +3,17 @@ import '../theme/glass_tokens.dart';
 
 /// iOS 风格动效常量与曲线
 abstract final class IosMotion {
-  static const fadeIn = Duration(milliseconds: 320);
-  static const slideIn = Duration(milliseconds: 420);
-  static const tabSwitch = Duration(milliseconds: 380);
-  static const micro = Duration(milliseconds: 180);
+  static const fadeIn = Duration(milliseconds: 200);
+  static const fadeOut = Duration(milliseconds: 160);
+  static const tabSwitch = Duration(milliseconds: 220);
+  static const slideIn = Duration(milliseconds: 280);
+  static const switchGap = Duration.zero;
+  static const micro = Duration(milliseconds: 80);
+  static const staggerStep = Duration(milliseconds: 16);
 
   static const emphasized = GlassTokens.iosEmphasized;
   static const decelerate = GlassTokens.iosDecelerate;
-  static const standard = Curves.easeInOutCubic;
-
-  static Animation<double> fade(AnimationController c) =>
-      CurvedAnimation(parent: c, curve: emphasized);
-
-  static Animation<Offset> slideUp(AnimationController c, {double dy = 0.08}) =>
-      Tween<Offset>(begin: Offset(0, dy), end: Offset.zero).animate(
-        CurvedAnimation(parent: c, curve: emphasized),
-      );
-
-  static Animation<double> scaleIn(AnimationController c) =>
-      Tween<double>(begin: 0.96, end: 1).animate(
-        CurvedAnimation(parent: c, curve: emphasized),
-      );
+  static const spring = Curves.easeOutCubic;
+  static const enter = Curves.easeOutCubic;
+  static const exit = Curves.easeInCubic;
 }

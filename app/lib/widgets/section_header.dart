@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../theme/app_theme.dart';
+import '../theme/glass_theme.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -10,6 +11,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final g = GlassTheme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 4),
       child: Row(
@@ -23,12 +25,12 @@ class SectionHeader extends StatelessWidget {
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF334155),
+                        color: g.labelPrimary,
                         letterSpacing: -0.2,
                       ),
                 ),
                 if (subtitle != null)
-                  Text(subtitle!, style: TextStyle(fontSize: 12, color: Colors.black.withValues(alpha: 0.45))),
+                  Text(subtitle!, style: TextStyle(fontSize: 12, color: g.labelSecondary)),
               ],
             ),
           ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../animations/glass_transitions.dart';
 import '../theme/app_theme.dart';
+import '../theme/glass_theme.dart';
 import 'glass/glass_surface.dart';
 
 class StockListTile extends StatelessWidget {
@@ -27,54 +27,47 @@ class StockListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StaggeredFadeSlide(
-      index: index,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: compact ? 6 : 8),
-        child: IosTapScale(
-          onTap: onTap,
-          child: GlassSurface(
-            blur: 16,
-            radius: compact ? 14 : 16,
-            padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 14, vertical: compact ? 10 : 12),
-            onTap: onTap,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: compact ? 14 : 15,
-                          color: const Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$code · $subtitle · ${fmtMoney(price)}',
-                        style: TextStyle(fontSize: 12, color: Colors.black.withValues(alpha: 0.45)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+    final g = GlassTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 6 : 8),
+      child: GlassSurface.flat(
+        radius: compact ? 14 : 16,
+        padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 14, vertical: compact ? 10 : 12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: compact ? 14 : 15,
+                      color: g.labelPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                PriceText(value: changePct, isPercent: true, fontSize: compact ? 14 : 15),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    '$code · $subtitle · ${fmtMoney(price)}',
+                    style: TextStyle(fontSize: 12, color: g.labelSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-          ),
+            PriceText(value: changePct, isPercent: true, fontSize: compact ? 14 : 15),
+          ],
         ),
       ),
     );
   }
 }
 
-// Re-export PriceText from common for tile
 class PriceText extends StatelessWidget {
   final double value;
   final double? fontSize;

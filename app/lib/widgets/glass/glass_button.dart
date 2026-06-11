@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../animations/glass_transitions.dart';
+import '../../layout/app_breakpoints.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/glass_theme.dart';
 import '../../theme/glass_tokens.dart';
 import 'glass_surface.dart';
 
@@ -13,6 +16,7 @@ class GlassButton extends StatelessWidget {
   final bool loading;
   final bool expanded;
   final EdgeInsetsGeometry? padding;
+  final double? minWidth;
 
   const GlassButton({
     super.key,
@@ -23,51 +27,67 @@ class GlassButton extends StatelessWidget {
     this.loading = false,
     this.expanded = false,
     this.padding,
+    this.minWidth,
   });
-
-  Color get _tint => switch (variant) {
-        GlassButtonVariant.primary => const Color(0xCC2563EB),
-        GlassButtonVariant.secondary => GlassTokens.glassFillLight,
-        GlassButtonVariant.ghost => Colors.transparent,
-        GlassButtonVariant.danger => const Color(0xCCDC2626),
-      };
-
-  Color get _textColor => switch (variant) {
-        GlassButtonVariant.primary => Colors.white,
-        GlassButtonVariant.danger => Colors.white,
-        _ => const Color(0xFF1E293B),
-      };
 
   @override
   Widget build(BuildContext context) {
-    final child = GlassSurface(
+    final g = GlassTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final fullWidth = expanded && AppBreakpoints.shouldExpandButtons(context);
+
+    final (fill, textColor, border) = switch (variant) {
+      GlassButtonVariant.primary => (
+          primary.withValues(alpha: 0.88),
+          Colors.white,
+          primary.withValues(alpha: 0.2),
+        ),
+      GlassButtonVariant.danger => (
+          AppColors.up.withValues(alpha: 0.88),
+          Colors.white,
+          AppColors.up.withValues(alpha: 0.2),
+        ),
+      GlassButtonVariant.secondary => (g.glassFillFlat, g.labelPrimary, g.glassBorder),
+      GlassButtonVariant.ghost => (Colors.transparent, g.labelPrimary, Colors.transparent),
+    };
+
+    final useFrosted = variant == GlassButtonVariant.primary || variant == GlassButtonVariant.danger;
+
+    final surface = GlassSurface(
+      frosted: useFrosted,
+      blur: useFrosted ? GlassTokens.blurLight : 0,
       radius: GlassTokens.radiusMd,
-      blur: GlassTokens.blurLight,
-      tint: _tint,
-      borderColor: variant == GlassButtonVariant.ghost ? Colors.transparent : null,
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      tint: fill,
+      borderColor: border,
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       onTap: loading ? null : onPressed,
       child: Row(
-        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (loading)
             SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: _textColor),
+              child: CircularProgressIndicator(strokeWidth: 2, color: textColor),
             )
           else ...[
-            if (icon != null) ...[Icon(icon, size: 18, color: _textColor), const SizedBox(width: 8)],
-            Text(label, style: TextStyle(color: _textColor, fontWeight: FontWeight.w600, fontSize: 15)),
+            if (icon != null) ...[Icon(icon, size: 18, color: textColor), const SizedBox(width: 8)],
+            Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 15)),
           ],
         ],
       ),
     );
 
-    return IosTapScale(
-      onTap: loading ? null : onPressed,
-      child: expanded ? SizedBox(width: double.infinity, child: child) : child,
-    );
+    Widget child = minWidth != null
+        ? ConstrainedBox(constraints: BoxConstraints(minWidth: minWidth!), child: surface)
+        : surface;
+
+    if (fullWidth) {
+      child = SizedBox(width: double.infinity, child: child);
+    }
+
+    return IosTapScale(onTap: loading ? null : onPressed, child: child);
   }
 }

@@ -124,9 +124,8 @@ class _DesktopMarket extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final pad = AppBreakpoints.pagePadding(context);
     return Padding(
-      padding: pad,
+      padding: const EdgeInsets.fromLTRB(8, 0, 24, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -143,6 +142,7 @@ class _DesktopMarket extends StatelessWidget {
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: state.refreshAll,
+                      color: AppColors.primary,
                       child: _StockListView(scrollCtrl: listScrollCtrl, compact: true),
                     ),
                   ),
@@ -153,9 +153,7 @@ class _DesktopMarket extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             flex: 6,
-            child: SingleChildScrollView(
-              child: _QuotePanel(padding: EdgeInsets.zero),
-            ),
+            child: _QuotePanel(padding: EdgeInsets.zero, sticky: true),
           ),
         ],
       ),
@@ -197,7 +195,12 @@ class _MarketFilters extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              GlassButton(label: '搜索', icon: Icons.search, onPressed: () => onSearch(state, searchCtrl.text)),
+              GlassButton(
+                label: '搜索',
+                icon: Icons.search,
+                minWidth: 88,
+                onPressed: () => onSearch(state, searchCtrl.text),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -284,79 +287,128 @@ class _MarketFilters extends StatelessWidget {
 
 class _QuotePanel extends StatelessWidget {
   final EdgeInsets padding;
+  final bool sticky;
 
-  const _QuotePanel({required this.padding});
+  const _QuotePanel({required this.padding, this.sticky = false});
+
+  Widget _klineHeader(BuildContext context, AppState state) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('K 线', style: Theme.of(context).textTheme.titleMedium),
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final p in ['day', 'week', 'month', 'm60'])
+              GlassChip(
+                label: {'day': '日', 'week': '周', 'month': '月', 'm60': '60分'}[p]!,
+                selected: state.klinePeriod == p,
+                onPressed: state.loading ? null : () => state.setKlinePeriod(p),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _quoteCard(BuildContext context, dynamic q) {
+    return GlassCard(
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(child: Text('${q.name} (${q.code})', style: Theme.of(context).textTheme.titleLarge)),
+              StatusBadge(label: q.board, color: AppColors.secondary),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              PriceText(value: q.price, fontSize: AppBreakpoints.isDesktop(context) ? 40 : 36),
+              const SizedBox(width: 12),
+              PriceText(value: q.changePct, isPercent: true, fontSize: 18),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              SummaryTile(label: '昨收', value: fmtMoney(q.prevClose)),
+              SummaryTile(label: '涨停', value: fmtMoney(q.limitUp), valueColor: AppColors.up),
+              SummaryTile(label: '跌停', value: fmtMoney(q.limitDown), valueColor: AppColors.down),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final q = state.selectedQuote;
+    final desktop = sticky && AppBreakpoints.isDesktop(context);
+
     if (q == null) {
       return Padding(
         padding: padding,
         child: const GlassCard(
-          child: Center(child: Text('选择一只股票查看详情', style: TextStyle(color: Color(0xFF64748B)))),
+          margin: EdgeInsets.zero,
+          child: Center(
+            child: Padding(padding: EdgeInsets.all(48), child: Text('选择一只股票查看详情')),
+          ),
         ),
       );
     }
+
+    if (desktop) {
+      return Padding(
+        padding: padding,
+        child: Column(
+          children: [
+            _quoteCard(context, q),
+            const SizedBox(height: 12),
+            Expanded(
+              child: GlassCard(
+                margin: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _klineHeader(context, state),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, c) => KlineChart(
+                          bars: state.klineData?.bars ?? [],
+                          height: c.maxHeight.clamp(200, 800),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: padding,
       child: Column(
         children: [
+          _quoteCard(context, q),
+          const SizedBox(height: 12),
           GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${q.name} (${q.code})', style: Theme.of(context).textTheme.titleLarge),
-                    StatusBadge(label: q.board, color: AppColors.secondary),
-                  ],
-                ),
+                _klineHeader(context, state),
                 const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    PriceText(value: q.price, fontSize: 36),
-                    const SizedBox(width: 12),
-                    PriceText(value: q.changePct, isPercent: true, fontSize: 18),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    SummaryTile(label: '昨收', value: fmtMoney(q.prevClose)),
-                    SummaryTile(label: '涨停', value: fmtMoney(q.limitUp), valueColor: AppColors.up),
-                    SummaryTile(label: '跌停', value: fmtMoney(q.limitDown), valueColor: AppColors.down),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('K 线', style: Theme.of(context).textTheme.titleMedium),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        for (final p in ['day', 'week', 'month', 'm60'])
-                          GlassChip(
-                            label: {'day': '日', 'week': '周', 'month': '月', 'm60': '60分'}[p]!,
-                            selected: state.klinePeriod == p,
-                            onPressed: state.loading ? null : () => state.setKlinePeriod(p),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                KlineChart(bars: state.klineData?.bars ?? [], height: AppBreakpoints.isDesktop(context) ? 420 : 320),
+                KlineChart(bars: state.klineData?.bars ?? [], height: 320),
               ],
             ),
           ),

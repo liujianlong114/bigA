@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
@@ -6,10 +7,13 @@ import '../services/live_market_service.dart';
 
 class AppState extends ChangeNotifier {
   static const _tokenKey = 'biga_auth_token';
+  static const _themeKey = 'biga_theme_mode';
 
   final ApiService api;
   final LiveMarketService live = LiveMarketService();
   AppState(this.api);
+
+  ThemeMode themeMode = ThemeMode.system;
 
   bool authReady = false;
   bool isGuest = false;
@@ -55,13 +59,51 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
-    await _restoreAuth();
+    await Future.wait([_restoreAuth(), _restoreTheme()]);
     authReady = true;
     notifyListeners();
     if (isLoggedIn || isGuest) {
       await refreshAll();
       _startLive();
     }
+  }
+
+  String get themeModeLabel => switch (themeMode) {
+        ThemeMode.light => '亮色',
+        ThemeMode.dark => '暗色',
+        ThemeMode.system => '跟随系统',
+      };
+
+  Future<void> _restoreTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    themeMode = _parseThemeMode(prefs.getString(_themeKey));
+  }
+
+  ThemeMode _parseThemeMode(String? raw) => switch (raw) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (themeMode == mode) return;
+    themeMode = mode;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    });
+  }
+
+  Future<void> cycleThemeMode() async {
+    final next = switch (themeMode) {
+      ThemeMode.system => ThemeMode.light,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.dark => ThemeMode.system,
+    };
+    await setThemeMode(next);
   }
 
   Future<void> _restoreAuth() async {
