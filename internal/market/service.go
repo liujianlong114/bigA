@@ -68,3 +68,37 @@ func (s *Service) Search(ctx context.Context, keyword string, limit int) ([]Stoc
 func (s *Service) QuoteHistory(ctx context.Context, code string, limit int) ([]store.QuoteLog, error) {
 	return s.repo.ListQuoteLogs(ctx, code, limit)
 }
+
+// GetKline 拉取 K 线并落库 MySQL（支持全 A 股任意代码）
+func (s *Service) GetKline(ctx context.Context, code string, period KlinePeriod, limit int) (*KlineResult, error) {
+	if period == "" {
+		period = PeriodDay
+	}
+	res, err := s.provider.Kline(ctx, code, period, limit)
+	if err != nil {
+		return nil, err
+	}
+	bars := make([]store.KlineBarRecord, len(res.Bars))
+	for i, b := range res.Bars {
+		bars[i] = store.KlineBarRecord{
+			Date: b.Date, Open: b.Open, High: b.High, Low: b.Low, Close: b.Close, Volume: b.Volume, Amount: b.Amount,
+		}
+	}
+	_ = s.repo.UpsertKlines(ctx, res.Code, string(period), res.Source, bars)
+	if res.Name != "" {
+		_ = s.repo.UpsertStockInfo(ctx, res.Code, res.Name, string(DetectBoard(res.Code, res.Name)))
+	}
+	return res, nil
+}
+
+func (s *Service) KlineFromDB(ctx context.Context, code string, period KlinePeriod, limit int) ([]KlineBar, error) {
+	rows, err := s.repo.ListKlines(ctx, code, string(period), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]KlineBar, len(rows))
+	for i, b := range rows {
+		out[i] = KlineBar{Date: b.Date, Open: b.Open, High: b.High, Low: b.Low, Close: b.Close, Volume: b.Volume, Amount: b.Amount}
+	}
+	return out, nil
+}

@@ -116,3 +116,20 @@ CREATE TABLE IF NOT EXISTS stock_info (
     board         VARCHAR(16) NOT NULL,
     updated_at    DATETIME(3) NOT NULL
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS market_kline (
+    id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    code          CHAR(6) NOT NULL,
+    period        VARCHAR(16) NOT NULL,
+    trade_date    DATE NOT NULL,
+    open_p        DECIMAL(12,4) NOT NULL,
+    high_p        DECIMAL(12,4) NOT NULL,
+    low_p         DECIMAL(12,4) NOT NULL,
+    close_p       DECIMAL(12,4) NOT NULL,
+    volume        BIGINT NOT NULL,
+    amount        DECIMAL(20,2) NOT NULL DEFAULT 0,
+    source        VARCHAR(16) NOT NULL,
+    recorded_at   DATETIME(3) NOT NULL,
+    UNIQUE KEY uk_code_period_date (code, period, trade_date),
+    KEY idx_code_period (code, period, trade_date)
+) ENGINE=InnoDB;

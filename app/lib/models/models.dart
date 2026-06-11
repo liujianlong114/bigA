@@ -182,6 +182,61 @@ class OrderResult {
       );
 }
 
+class KlineBar {
+  final String date;
+  final double open;
+  final double high;
+  final double low;
+  final double close;
+  final int volume;
+
+  KlineBar({
+    required this.date,
+    required this.open,
+    required this.high,
+    required this.low,
+    required this.close,
+    required this.volume,
+  });
+
+  factory KlineBar.fromJson(Map<String, dynamic> j) => KlineBar(
+        date: j['date'] ?? '',
+        open: _d(j['open']),
+        high: _d(j['high']),
+        low: _d(j['low']),
+        close: _d(j['close']),
+        volume: (j['volume'] as num?)?.toInt() ?? 0,
+      );
+
+  bool get isUp => close >= open;
+}
+
+class KlineData {
+  final String code;
+  final String name;
+  final String period;
+  final String source;
+  final List<KlineBar> bars;
+
+  KlineData({
+    required this.code,
+    required this.name,
+    required this.period,
+    required this.source,
+    required this.bars,
+  });
+
+  factory KlineData.fromJson(Map<String, dynamic> j) => KlineData(
+        code: j['code'] ?? '',
+        name: j['name'] ?? '',
+        period: j['period'] ?? 'day',
+        source: j['source'] ?? '',
+        bars: (j['bars'] as List? ?? [])
+            .map((e) => KlineBar.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class TradeRecord {
   final int id;
   final String code;

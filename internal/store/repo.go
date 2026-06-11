@@ -487,7 +487,7 @@ func (r *Repo) Ping(ctx context.Context) error {
 }
 
 func (r *Repo) Stats(ctx context.Context) (map[string]int64, error) {
-	tables := []string{"sim_account", "sim_position", "sim_order", "sim_trade", "market_quote_log", "ai_action_log"}
+	tables := []string{"sim_account", "sim_position", "sim_order", "sim_trade", "market_quote_log", "market_kline", "ai_action_log"}
 	out := make(map[string]int64)
 	for _, t := range tables {
 		var n int64

@@ -7,4 +7,10 @@ class ApiConfig {
     'API_BASE',
     defaultValue: 'http://localhost:8080',
   );
+
+  static String get wsUrl {
+    final u = Uri.parse(baseUrl);
+    final scheme = u.scheme == 'https' ? 'wss' : 'ws';
+    return '$scheme://${u.host}${u.hasPort ? ':${u.port}' : ''}/api/v1/ws/market';
+  }
 }

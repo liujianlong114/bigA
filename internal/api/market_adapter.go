@@ -36,3 +36,7 @@ func (a *MarketAdapter) Search(r *http.Request, q string) (any, error) {
 func (a *MarketAdapter) QuoteHistory(r *http.Request, code string, limit int) (any, error) {
 	return a.Svc.QuoteHistory(r.Context(), code, limit)
 }
+
+func (a *MarketAdapter) Kline(r *http.Request, code, period string, limit int) (any, error) {
+	return a.Svc.GetKline(r.Context(), code, market.KlinePeriod(period), limit)
+}

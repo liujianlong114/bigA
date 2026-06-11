@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/lijianjun/bigA/internal/cache"
 	"github.com/lijianjun/bigA/internal/sim"
 	"github.com/lijianjun/bigA/internal/store"
 )
@@ -15,6 +16,7 @@ type Handlers struct {
 	Engine       *sim.Engine
 	PortfolioSvc *sim.Portfolio
 	Repo         *store.Repo
+	LiveRedis    *cache.Redis
 }
 
 type MarketAPI interface {
@@ -22,6 +24,7 @@ type MarketAPI interface {
 	List(r *http.Request) (any, error)
 	Search(r *http.Request, q string) (any, error)
 	QuoteHistory(r *http.Request, code string, limit int) (any, error)
+	Kline(r *http.Request, code string, period string, limit int) (any, error)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -41,17 +44,46 @@ func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		stats = map[string]int64{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"service": "bigA",
 		"mode":    "a_share_paper_sim",
 		"mysql":   mysqlOK,
 		"redis":   true,
 		"storage": map[string]string{
 			"mysql": "biga (orders/trades/positions/quotes/ai_log)",
-			"redis": "quote cache + trade lock",
+			"redis": "quote cache + live quotes hash + trade lock",
 		},
 		"db_stats": stats,
-	})
+		"live":     map[string]any{"enabled": h.LiveRedis != nil},
+	}
+	if h.LiveRedis != nil {
+		if meta, err := h.LiveRedis.GetLiveMeta(ctx); err == nil {
+			resp["live"] = meta
+		}
+		if n, err := h.LiveRedis.GetLiveQuoteCount(ctx); err == nil {
+			resp["live_quotes"] = n
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handlers) Kline(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		writeErr(w, http.StatusBadRequest, "code is required")
+		return
+	}
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "day"
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	data, err := h.Market.Kline(r, code, period, limit)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, data)
 }
 
 func (h *Handlers) Quote(w http.ResponseWriter, r *http.Request) {

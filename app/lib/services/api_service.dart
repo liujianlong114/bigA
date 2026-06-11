@@ -103,6 +103,15 @@ class ApiService {
     return OrderResult.fromJson(j);
   }
 
+  Future<KlineData> kline(String code, {String period = 'day', int limit = 120}) async {
+    final j = await _get('/api/v1/market/kline', {
+      'code': code,
+      'period': period,
+      'limit': '$limit',
+    });
+    return KlineData.fromJson(j);
+  }
+
   Future<void> settle() async {
     await _post('/api/v1/trade/settle', {});
   }

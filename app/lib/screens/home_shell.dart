@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/kline_chart.dart';
 import 'trade_screen.dart';
 import 'portfolio_screen.dart';
 import 'history_screen.dart';
@@ -31,6 +32,15 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         title: const Text('bigA 模拟盘'),
         actions: [
+          if (state.liveConnected)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Chip(
+                label: Text(state.marketOpen ? '实时' : '休市'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: state.marketOpen ? Colors.green.shade100 : Colors.grey.shade200,
+              ),
+            ),
           Icon(
             state.backendOk ? Icons.cloud_done : Icons.cloud_off,
             color: state.backendOk ? Colors.lightGreenAccent : Colors.orangeAccent,
@@ -91,7 +101,15 @@ class _MarketScreenState extends State<MarketScreen> {
               color: Colors.orange.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text('连接失败: ${state.error}\n请确认 Go 后端已启动 :8080'),
+                child: Text('后端未连接: ${state.error}\n请运行: go run ./cmd/server'),
+              ),
+            ),
+          if (state.marketWarning != null && state.error == null)
+            Card(
+              color: Colors.amber.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('部分行情加载失败: ${state.marketWarning}'),
               ),
             ),
           Row(
@@ -167,6 +185,40 @@ class _MarketScreenState extends State<MarketScreen> {
                 ),
               ),
             ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('K 线', style: Theme.of(context).textTheme.titleMedium),
+                        Wrap(
+                          spacing: 4,
+                          children: [
+                            for (final p in ['day', 'week', 'month', 'm60'])
+                              ChoiceChip(
+                                label: Text({'day': '日', 'week': '周', 'month': '月', 'm60': '60分'}[p]!),
+                                selected: state.klinePeriod == p,
+                                onSelected: state.loading ? null : (_) => state.setKlinePeriod(p),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (state.klineData != null)
+                      Text(
+                        '来源 ${state.klineData!.source} · ${state.klineData!.bars.length} 根 · 已落库 MySQL',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    const SizedBox(height: 8),
+                    KlineChart(bars: state.klineData?.bars ?? []),
+                  ],
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 8),
           Text('涨幅榜', style: Theme.of(context).textTheme.titleMedium),
@@ -177,7 +229,10 @@ class _MarketScreenState extends State<MarketScreen> {
                 title: Text('${s.name} (${s.code})'),
                 subtitle: Text(fmtMoney(s.price)),
                 trailing: PriceText(value: s.changePct, isPercent: true),
-                onTap: () => state.loadQuote(s.code),
+                onTap: () async {
+                  await state.loadQuote(s.code);
+                  await state.loadKline();
+                },
               )),
         ],
       ),

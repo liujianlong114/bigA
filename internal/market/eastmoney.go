@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,9 +12,9 @@ import (
 )
 
 const (
-	eastMoneyQuoteURL = "https://push2.eastmoney.com/api/qt/stock/get"
-	eastMoneyListURL  = "https://push2.eastmoney.com/api/qt/clist/get"
-	eastMoneyUT       = "fa5fd1943c7b386f172d6893dbfba10b"
+	eastMoneyQuotePath = "/api/qt/stock/get"
+	eastMoneyListPath  = "/api/qt/clist/get"
+	eastMoneyUT        = "fa5fd1943c7b386f172d6893dbfba10b"
 )
 
 // EastMoney 东方财富免费行情
@@ -29,28 +28,11 @@ func NewEastMoney() *EastMoney {
 	}
 }
 
-func (e *EastMoney) doGet(ctx context.Context, rawURL string, params url.Values) ([]byte, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, err
-	}
-	u.RawQuery = params.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
-	req.Header.Set("Referer", "https://quote.eastmoney.com/")
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("eastmoney http %d", resp.StatusCode)
-	}
-	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+func (e *EastMoney) doGet(ctx context.Context, apiPath string, params url.Values) ([]byte, error) {
+	urls := eastmoneyHosts(func(host string) string {
+		return host + apiPath + "?" + params.Encode()
+	})
+	return resilientGet(ctx, e.client, urls, defaultHeaders())
 }
 
 // Quote 获取单只股票实时行情
@@ -66,7 +48,7 @@ func (e *EastMoney) Quote(ctx context.Context, code string) (*Quote, error) {
 	params.Set("secid", secid)
 	params.Set("fields", "f57,f58,f43,f44,f45,f46,f47,f48,f60,f169,f170,f19,f20")
 
-	body, err := e.doGet(ctx, eastMoneyQuoteURL, params)
+	body, err := e.doGet(ctx, eastMoneyQuotePath, params)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +132,7 @@ func (e *EastMoney) List(ctx context.Context, page, pageSize int) ([]StockBrief,
 	params.Set("fs", "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23")
 	params.Set("fields", "f12,f14,f2,f3")
 
-	body, err := e.doGet(ctx, eastMoneyListURL, params)
+	body, err := e.doGet(ctx, eastMoneyListPath, params)
 	if err != nil {
 		return nil, 0, err
 	}

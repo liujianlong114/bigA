@@ -4,6 +4,10 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/lijianjun/bigA/internal/api"
@@ -13,12 +17,14 @@ import (
 	"github.com/lijianjun/bigA/internal/market"
 	"github.com/lijianjun/bigA/internal/sim"
 	"github.com/lijianjun/bigA/internal/store"
+	"github.com/lijianjun/bigA/internal/stream"
 )
 
 func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	sqlDB, err := db.Open(cfg.MySQLDSN)
 	if err != nil {
@@ -44,19 +50,62 @@ func main() {
 	engine := sim.NewEngine(mktSvc, repo, rdb, rules)
 	portfolio := sim.NewPortfolio(mktSvc, repo)
 
+	universe := market.NewUniverse()
+	hub := stream.NewHub()
+	streamEngine := stream.NewEngine(universe, rdb, hub, cfg.RelaxHours)
+	streamEngine.Start(ctx)
+
+	go func() {
+		log.Printf("stream: 加载全 A 股列表...")
+		err := universe.LoadAll(ctx, rdb,
+			market.NewSinaList(),
+			market.NewEastMoney(),
+		)
+		if err != nil {
+			log.Printf("stream: universe 加载失败（将重试）: %v", err)
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if universe.Size() > 0 {
+						return
+					}
+					if err := universe.LoadAll(ctx, rdb, market.NewSinaList(), market.NewEastMoney()); err == nil {
+						log.Printf("stream: universe 重试成功 %d 只", universe.Size())
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	wsHandler := &api.WSHandler{Hub: hub, Redis: rdb}
+
 	h := &api.Handlers{
 		AccountID:    acct.ID,
 		Market:       &api.MarketAdapter{Svc: mktSvc},
 		Engine:       engine,
 		PortfolioSvc: portfolio,
 		Repo:         repo,
+		LiveRedis:    rdb,
 	}
 
 	log.Printf("bigA 大A模拟盘启动 %s", cfg.HTTPAddr)
 	log.Printf("MySQL: %s | Redis: %s | 账户 id=%d 现金=%.0f", maskDSN(cfg.MySQLDSN), cfg.RedisAddr, acct.ID, acct.Cash)
+	log.Printf("实时行情: WS /api/v1/ws/market | REST /api/v1/market/live")
 	log.Printf("AI: GET /api/v1/ai/state  POST /api/v1/ai/order")
 
-	if err := http.ListenAndServe(cfg.HTTPAddr, api.NewRouter(h)); err != nil {
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		<-sig
+		cancel()
+	}()
+
+	if err := http.ListenAndServe(cfg.HTTPAddr, api.NewRouter(h, wsHandler)); err != nil {
 		log.Fatal(err)
 	}
 }
