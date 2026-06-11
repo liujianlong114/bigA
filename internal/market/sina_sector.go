@@ -62,7 +62,7 @@ func (s *SinaSector) loadCatalog(ctx context.Context) (*sinaSectorCatalog, error
 
 	var root any
 	if err := json.Unmarshal(body, &root); err != nil {
-		return nil, err
+		return nil, errJSONBody(body, err)
 	}
 
 	cat := &sinaSectorCatalog{Updated: time.Now()}

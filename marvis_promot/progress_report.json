@@ -1,5 +1,5 @@
 {
-  "started_at": "2026-06-12T00:04:26.067485+08:00",
+  "started_at": "2026-06-12T00:24:31.505795+08:00",
   "backend_up": true,
   "flutter_up": true,
   "smoke_tests": [
@@ -18,8 +18,9 @@
     {
       "name": "list",
       "path": "/api/v1/market/list?page=1\u0026size=5",
-      "status": 200,
-      "ok": true
+      "status": 502,
+      "ok": false,
+      "detail": "{\"error\":\"Get \\\"https://15.push2.eastmoney.com/api/qt/clist/get?fid=f3\\u0026fields=f12%2Cf14%2Cf2%2Cf3\\u0026fltt=2\\u0026fs=m%3A0%2Bt%3A6%2Cm%3A0%2Bt%3A80%2Cm%3A1%2Bt%3A2%2Cm%3A1%2Bt%3A23\\u0026invt=2\\u"
     },
     {
       "name": "kline",
@@ -78,26 +79,16 @@
     {
       "name": "sectors",
       "path": "/api/v1/market/sectors?page=1\u0026size=5",
-      "status": 200,
-      "ok": true
+      "status": 502,
+      "ok": false,
+      "detail": "{\"error\":\"invalid character '\\u003c' looking for beginning of value\"}\n"
     },
     {
       "name": "sector_stocks",
       "path": "/api/v1/market/sector/new_hghy/stocks?page=1\u0026size=5",
-      "status": 200,
-      "ok": true
-    },
-    {
-      "name": "conditional_orders",
-      "path": "/api/v1/conditional-orders",
-      "status": 200,
-      "ok": true
-    },
-    {
-      "name": "performance",
-      "path": "/api/v1/performance",
-      "status": 200,
-      "ok": true
+      "status": 502,
+      "ok": false,
+      "detail": "{\"error\":\"invalid character '\\u003c' looking for beginning of value\"}\n"
     }
   ],
   "progress": {
@@ -106,24 +97,27 @@
       "P0-大盘解析",
       "P0-异动检测",
       "P0-每日复盘",
-      "P1-涨跌推测",
+      "P1-涨跌推测"
+    ],
+    "pending": [
       "P1-板块行情",
       "P1-条件单",
       "P1-绩效分析",
-      "P1-K线指标"
-    ],
-    "pending": [
+      "P1-K线指标",
       "P2-Docker",
       "P2-用户认证"
     ],
     "p0_done": 4,
     "p0_total": 4,
-    "p1_done": 5,
+    "p1_done": 1,
     "p1_total": 5
   },
   "next_tasks": [
-    "继续开发: P2-Docker",
-    "继续开发: P2-用户认证"
+    "继续开发: P1-板块行情",
+    "继续开发: P1-条件单",
+    "继续开发: P1-绩效分析",
+    "继续开发: P1-K线指标",
+    "继续开发: P2-Docker"
   ],
-  "all_passed": true
+  "all_passed": false
 }

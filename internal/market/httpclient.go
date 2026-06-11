@@ -40,6 +40,10 @@ func resilientGet(ctx context.Context, client *http.Client, urls []string, heade
 			lastErr = fmt.Errorf("empty body")
 			continue
 		}
+		if isHTMLBody(body) {
+			lastErr = fmt.Errorf("upstream returned HTML")
+			continue
+		}
 		return body, nil
 	}
 	if lastErr == nil {
@@ -79,4 +83,16 @@ func eastmoneyHosts(pathWithQuery func(host string) string) []string {
 
 func trimBOM(s string) string {
 	return strings.TrimPrefix(s, "\ufeff")
+}
+
+func isHTMLBody(body []byte) bool {
+	s := strings.TrimSpace(string(body))
+	return len(s) > 0 && (s[0] == '<' || strings.HasPrefix(strings.ToLower(s), "<!doctype"))
+}
+
+func errJSONBody(body []byte, err error) error {
+	if isHTMLBody(body) {
+		return fmt.Errorf("upstream returned HTML (blocked or rate limited)")
+	}
+	return err
 }

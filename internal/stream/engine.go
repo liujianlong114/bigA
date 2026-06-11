@@ -22,6 +22,7 @@ type Engine struct {
 	seq         atomic.Int64
 	busy        atomic.Bool
 	conditional ConditionalChecker
+	catalog     *market.Catalog
 }
 
 // ConditionalChecker 条件单触发检查
@@ -42,6 +43,10 @@ func NewEngine(u *market.Universe, r *cache.Redis, h *Hub, relax bool) *Engine {
 
 func (e *Engine) SetConditionalChecker(c ConditionalChecker) {
 	e.conditional = c
+}
+
+func (e *Engine) SetCatalog(c *market.Catalog) {
+	e.catalog = c
 }
 
 func (e *Engine) Start(ctx context.Context) {
@@ -112,6 +117,14 @@ func (e *Engine) tick(ctx context.Context) {
 
 	if e.conditional != nil {
 		e.conditional.CheckTriggers(ctx, quotes)
+	}
+
+	if e.catalog != nil && (seq == 1 || seq%30 == 0) {
+		go func(qs []market.LiveQuote) {
+			if err := e.catalog.PersistSnapshots(context.Background(), qs); err != nil {
+				log.Printf("stream: snapshot persist: %v", err)
+			}
+		}(quotes)
 	}
 }
 

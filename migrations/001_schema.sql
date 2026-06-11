@@ -1,14 +1,26 @@
 CREATE DATABASE IF NOT EXISTS biga CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE biga;
 
+CREATE TABLE IF NOT EXISTS sim_user (
+    id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username      VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    nickname      VARCHAR(64) NOT NULL DEFAULT '',
+    created_at    DATETIME(3) NOT NULL,
+    updated_at    DATETIME(3) NOT NULL,
+    UNIQUE KEY uk_username (username)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS sim_account (
     id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id       BIGINT NULL,
     name          VARCHAR(64)  NOT NULL DEFAULT 'default',
     cash          DECIMAL(18,2) NOT NULL,
     frozen_cash   DECIMAL(18,2) NOT NULL DEFAULT 0,
     created_at    DATETIME(3) NOT NULL,
     updated_at    DATETIME(3) NOT NULL,
-    UNIQUE KEY uk_name (name)
+    UNIQUE KEY uk_name (name),
+    UNIQUE KEY uk_user (user_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS sim_position (
@@ -115,6 +127,23 @@ CREATE TABLE IF NOT EXISTS stock_info (
     name          VARCHAR(64) NOT NULL,
     board         VARCHAR(16) NOT NULL,
     updated_at    DATETIME(3) NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS stock_snapshot (
+    code          CHAR(6) PRIMARY KEY,
+    name          VARCHAR(64) NOT NULL,
+    board         VARCHAR(16) NOT NULL DEFAULT 'main',
+    price         DECIMAL(12,4) NOT NULL DEFAULT 0,
+    change_pct    DECIMAL(10,4) NOT NULL DEFAULT 0,
+    prev_close    DECIMAL(12,4) NOT NULL DEFAULT 0,
+    volume        BIGINT NOT NULL DEFAULT 0,
+    amount        DECIMAL(20,2) NOT NULL DEFAULT 0,
+    limit_up      DECIMAL(12,4) NOT NULL DEFAULT 0,
+    limit_down    DECIMAL(12,4) NOT NULL DEFAULT 0,
+    updated_at    DATETIME(3) NOT NULL,
+    KEY idx_board (board),
+    KEY idx_change (change_pct),
+    KEY idx_name (name)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS market_kline (

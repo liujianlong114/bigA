@@ -15,16 +15,18 @@ import (
 )
 
 type Handlers struct {
-	AccountID      int64
-	Market         MarketAPI
-	SectorSvc      *market.SectorService
-	Engine         *sim.Engine
-	Conditional    *sim.ConditionalManager
-	PerformanceSvc *sim.Performance
-	PortfolioSvc   *sim.Portfolio
-	Repo           *store.Repo
-	LiveRedis      *cache.Redis
-	Analyzer       *analysis.Analyzer
+	DefaultAccountID int64
+	Auth             AuthConfig
+	Market           MarketAPI
+	SectorSvc        *market.SectorService
+	Catalog          *market.Catalog
+	Engine           *sim.Engine
+	Conditional      *sim.ConditionalManager
+	PerformanceSvc   *sim.Performance
+	PortfolioSvc     *sim.Portfolio
+	Repo             *store.Repo
+	LiveRedis        *cache.Redis
+	Analyzer         *analysis.Analyzer
 }
 
 type MarketAPI interface {
@@ -134,6 +136,13 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "q is required")
 		return
 	}
+	if h.Catalog != nil {
+		items, err := h.Catalog.Search(r.Context(), q, 20)
+		if err == nil && len(items) > 0 {
+			writeJSON(w, http.StatusOK, map[string]any{"items": items})
+			return
+		}
+	}
 	data, err := h.Market.Search(r, q)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, err.Error())
@@ -142,8 +151,42 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, data)
 }
 
+func (h *Handlers) StockList(w http.ResponseWriter, r *http.Request) {
+	if h.Catalog == nil {
+		writeErr(w, http.StatusServiceUnavailable, "catalog not available")
+		return
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	board := r.URL.Query().Get("board")
+	sortBy := r.URL.Query().Get("sort")
+	if sortBy == "" {
+		sortBy = "change_pct"
+	}
+	keyword := r.URL.Query().Get("q")
+	res, err := h.Catalog.List(r.Context(), page, size, board, sortBy, keyword)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) BoardStats(w http.ResponseWriter, r *http.Request) {
+	if h.Catalog == nil {
+		writeErr(w, http.StatusServiceUnavailable, "catalog not available")
+		return
+	}
+	stats, err := h.Catalog.BoardStats(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 func (h *Handlers) Account(w http.ResponseWriter, r *http.Request) {
-	acct, err := h.Repo.GetAccount(r.Context(), h.AccountID)
+	acct, err := h.Repo.GetAccount(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -152,7 +195,7 @@ func (h *Handlers) Account(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Portfolio(w http.ResponseWriter, r *http.Request) {
-	s, err := h.PortfolioSvc.Summary(r.Context(), h.AccountID)
+	s, err := h.PortfolioSvc.Summary(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -162,7 +205,7 @@ func (h *Handlers) Portfolio(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) Orders(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	orders, err := h.Repo.ListOrders(r.Context(), h.AccountID, limit)
+	orders, err := h.Repo.ListOrders(r.Context(), h.accountID(r), limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -172,7 +215,7 @@ func (h *Handlers) Orders(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) Trades(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	trades, err := h.Repo.ListTrades(r.Context(), h.AccountID, limit)
+	trades, err := h.Repo.ListTrades(r.Context(), h.accountID(r), limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -189,7 +232,7 @@ func (h *Handlers) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	if req.Source == "" {
 		req.Source = "ai"
 	}
-	res, err := h.Engine.PlaceOrder(r.Context(), h.AccountID, req)
+	res, err := h.Engine.PlaceOrder(r.Context(), h.accountID(r), req)
 	if err != nil {
 		if res != nil && res.Status == "rejected" {
 			writeJSON(w, http.StatusBadRequest, res)
@@ -211,7 +254,7 @@ func (h *Handlers) Buy(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	res, err := h.Engine.PlaceOrder(r.Context(), h.AccountID, sim.OrderRequest{
+	res, err := h.Engine.PlaceOrder(r.Context(), h.accountID(r), sim.OrderRequest{
 		Code: body.Code, Side: "buy", OrderType: "market", Quantity: body.Quantity, Source: "api",
 	})
 	if err != nil {
@@ -230,7 +273,7 @@ func (h *Handlers) Sell(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	res, err := h.Engine.PlaceOrder(r.Context(), h.AccountID, sim.OrderRequest{
+	res, err := h.Engine.PlaceOrder(r.Context(), h.accountID(r), sim.OrderRequest{
 		Code: body.Code, Side: "sell", OrderType: "market", Quantity: body.Quantity, Source: "api",
 	})
 	if err != nil {
@@ -241,7 +284,7 @@ func (h *Handlers) Sell(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Settle(w http.ResponseWriter, r *http.Request) {
-	n, err := h.Engine.SettleDay(r.Context(), h.AccountID)
+	n, err := h.Engine.SettleDay(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -255,13 +298,13 @@ func (h *Handlers) Settle(w http.ResponseWriter, r *http.Request) {
 
 // AIState 给 AI 的完整可读状态（账户+持仓+委托+成交）
 func (h *Handlers) AIState(w http.ResponseWriter, r *http.Request) {
-	state, err := h.Repo.BuildAIState(r.Context(), h.AccountID)
+	state, err := h.Repo.BuildAIState(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// 补充实时市值
-	port, portErr := h.PortfolioSvc.Summary(r.Context(), h.AccountID)
+	port, portErr := h.PortfolioSvc.Summary(r.Context(), h.accountID(r))
 	resp := map[string]any{"state": state}
 	if portErr == nil {
 		resp["portfolio"] = port
@@ -278,7 +321,7 @@ func (h *Handlers) PortfolioAnalysis(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
 		return
 	}
-	res, err := h.Analyzer.AnalyzePortfolio(r.Context(), h.AccountID)
+	res, err := h.Analyzer.AnalyzePortfolio(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -317,7 +360,7 @@ func (h *Handlers) DailyReport(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
 		return
 	}
-	res, err := h.Analyzer.GenerateDailyReport(r.Context(), h.AccountID)
+	res, err := h.Analyzer.GenerateDailyReport(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -356,7 +399,9 @@ func (h *Handlers) Sectors(w http.ResponseWriter, r *http.Request) {
 	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
 	res, err := h.SectorSvc.ListSectors(r.Context(), kind, page, size)
 	if err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
+		writeJSON(w, http.StatusOK, market.SectorListResult{
+			Type: string(kind), Items: []market.SectorBrief{}, Source: "offline",
+		})
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
@@ -394,7 +439,7 @@ func (h *Handlers) CreateConditionalOrder(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	co, err := h.Conditional.Create(r.Context(), h.AccountID, req)
+	co, err := h.Conditional.Create(r.Context(), h.accountID(r), req)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -408,7 +453,7 @@ func (h *Handlers) ListConditionalOrders(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	items, err := h.Conditional.List(r.Context(), h.AccountID, limit)
+	items, err := h.Conditional.List(r.Context(), h.accountID(r), limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -429,7 +474,7 @@ func (h *Handlers) CancelConditionalOrder(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.Conditional.Cancel(r.Context(), h.AccountID, id); err != nil {
+	if err := h.Conditional.Cancel(r.Context(), h.accountID(r), id); err != nil {
 		if err == sql.ErrNoRows {
 			writeErr(w, http.StatusNotFound, "conditional order not found or not pending")
 			return
@@ -445,7 +490,7 @@ func (h *Handlers) Performance(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "performance module not available")
 		return
 	}
-	res, err := h.PerformanceSvc.Analyze(r.Context(), h.AccountID)
+	res, err := h.PerformanceSvc.Analyze(r.Context(), h.accountID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

@@ -1,36 +1,62 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'glass_tokens.dart';
 
 class AppColors {
-  static const up = Color(0xFFE53935);
-  static const down = Color(0xFF43A047);
-  static const bg = Color(0xFFF5F6FA);
-  static const card = Colors.white;
-  static const primary = Color(0xFF1565C0);
+  static const up = Color(0xFFFF3B30);
+  static const down = Color(0xFF34C759);
+  static const primary = Color(0xFF007AFF);
+  static const secondary = Color(0xFF5856D6);
+  static const label = Color(0xFF3C3C43);
+  static const labelSecondary = Color(0x993C3C43);
 }
 
 ThemeData buildAppTheme() {
-  final base = ThemeData(
+  return ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary, brightness: Brightness.light),
-    scaffoldBackgroundColor: AppColors.bg,
-  );
-  return base.copyWith(
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: Colors.transparent,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.primary,
+      brightness: Brightness.light,
+      primary: AppColors.primary,
+      surface: Colors.white.withValues(alpha: 0.8),
+    ),
+    fontFamily: '.AppleSystemUIFont',
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     appBarTheme: const AppBarTheme(
-      centerTitle: true,
       elevation: 0,
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
+      foregroundColor: Color(0xFF0F172A),
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
     ),
     cardTheme: CardThemeData(
-      color: AppColors.card,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassTokens.radiusLg)),
     ),
     inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      filled: false,
+      border: InputBorder.none,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.35)),
     ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(GlassTokens.radiusMd)),
+      backgroundColor: const Color(0xE6232A36),
+    ),
+    dividerColor: Colors.white.withValues(alpha: 0.4),
   );
 }
 

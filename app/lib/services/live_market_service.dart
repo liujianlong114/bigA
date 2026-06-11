@@ -44,6 +44,8 @@ class LiveMarketService {
               name: item['name']?.toString() ?? '',
               price: _d(item['price']),
               changePct: _d(item['change_pct']),
+              board: item['board']?.toString() ?? '',
+              boardName: item['board_name']?.toString() ?? '',
             );
           }
           onUpdate(_quotes, marketOpen);

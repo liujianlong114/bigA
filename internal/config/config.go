@@ -13,6 +13,8 @@ type Config struct {
 	HTTPAddr      string
 	InitialCash   float64
 	RelaxHours    bool
+	JWTSecret     string
+	AuthRelax     bool
 }
 
 func Load() Config {
@@ -24,6 +26,8 @@ func Load() Config {
 		HTTPAddr:      getenv("HTTP_ADDR", ":8080"),
 		InitialCash:   getenvFloat("SIM_INITIAL_CASH", 1_000_000),
 		RelaxHours:    getenvBool("SIM_RELAX_HOURS", true),
+		JWTSecret:     getenv("JWT_SECRET", "biga-dev-secret-change-me"),
+		AuthRelax:     getenvBool("SIM_AUTH_RELAX", true),
 	}
 }
 

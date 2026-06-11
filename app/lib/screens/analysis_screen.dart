@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../layout/app_breakpoints.dart';
 import '../providers/app_state.dart';
+import '../theme/app_theme.dart';
+import '../widgets/components.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -69,21 +72,29 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Column(
       children: [
-        TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: '大盘'),
-            Tab(text: '持仓'),
-            Tab(text: '异动'),
-            Tab(text: '复盘'),
-          ],
+        GlassSurface(
+          radius: 0,
+          blur: 12,
+          padding: EdgeInsets.zero,
+          child: TabBar(
+            controller: _tabs,
+            isScrollable: true,
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: const Color(0xFF64748B),
+            tabs: const [
+              Tab(text: '大盘'),
+              Tab(text: '持仓'),
+              Tab(text: '异动'),
+              Tab(text: '复盘'),
+            ],
+          ),
         ),
-        if (loading) const LinearProgressIndicator(),
+        if (loading) LinearProgressIndicator(color: AppColors.primary, backgroundColor: AppColors.primary.withValues(alpha: 0.12)),
         if (error != null)
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(error!, style: const TextStyle(color: Colors.red)),
+            child: Text(error!, style: const TextStyle(color: AppColors.up)),
           ),
         Expanded(
           child: TabBarView(
@@ -107,49 +118,56 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
     final indices = market!['indices'] as List? ?? [];
     return RefreshIndicator(
       onRefresh: _load,
+      color: AppColors.primary,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppBreakpoints.pagePadding(context),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('市场宽度', style: Theme.of(context).textTheme.titleMedium),
-                  Text('上涨 ${breadth['up']} / 下跌 ${breadth['down']} / 平盘 ${breadth['flat']}'),
-                  Text('涨跌比 ${breadth['up_down_ratio']}'),
-                ],
-              ),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('市场宽度', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text('上涨 ${breadth['up']} / 下跌 ${breadth['down']} / 平盘 ${breadth['flat']}'),
+                Text('涨跌比 ${breadth['up_down_ratio']}'),
+              ],
             ),
           ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('情绪', style: Theme.of(context).textTheme.titleMedium),
-                  Text('涨停 ${sentiment['limit_up_count']} / 跌停 ${sentiment['limit_down_count']}'),
-                  Text('均涨幅 ${sentiment['avg_change_pct']}%'),
-                ],
-              ),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('情绪', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text('涨停 ${sentiment['limit_up_count']} / 跌停 ${sentiment['limit_down_count']}'),
+                Text('均涨幅 ${sentiment['avg_change_pct']}%'),
+              ],
             ),
           ),
-          Text('主要指数', style: Theme.of(context).textTheme.titleMedium),
+          SectionHeader(title: '主要指数'),
           ...indices.map((e) {
             final m = e as Map<String, dynamic>;
-            return ListTile(
-              title: Text('${m['name']} (${m['code']})'),
-              trailing: Text('${m['change_pct']}%'),
-              subtitle: Text('${m['price']}'),
+            return GlassCard(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(
+                title: Text('${m['name']} (${m['code']})'),
+                trailing: Text('${m['change_pct']}%', style: TextStyle(color: priceColor((m['change_pct'] as num?)?.toDouble() ?? 0))),
+                subtitle: Text('${m['price']}'),
+              ),
             );
           }),
           if (predict != null) ...[
-            const Divider(),
-            Text('${context.read<AppState>().selectedCode} 涨跌推测', style: Theme.of(context).textTheme.titleMedium),
-            Text('评分 ${predict!['score']} | 信号 ${predict!['signal']}'),
-            Text('1日上涨概率 ${((predict!['prob_up_1d'] as num) * 100).toStringAsFixed(1)}%'),
+            SectionHeader(title: '${context.read<AppState>().selectedCode} 涨跌推测'),
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('评分 ${predict!['score']} | 信号 ${predict!['signal']}'),
+                  Text('1日上涨概率 ${((predict!['prob_up_1d'] as num) * 100).toStringAsFixed(1)}%'),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -162,24 +180,38 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
     final warnings = portfolio!['risk_warnings'] as List? ?? [];
     return RefreshIndicator(
       onRefresh: _load,
+      color: AppColors.primary,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppBreakpoints.pagePadding(context),
         children: [
-          Text('总市值 ${portfolio!['total_value']} | 盈亏 ${portfolio!['total_pl']} (${portfolio!['total_pl_pct']}%)'),
-          Text('Beta ${portfolio!['beta']} | 最大回撤估算 ${portfolio!['max_drawdown_90d_est']}%'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('总市值 ${portfolio!['total_value']} | 盈亏 ${portfolio!['total_pl']} (${portfolio!['total_pl_pct']}%)'),
+                const SizedBox(height: 4),
+                Text('Beta ${portfolio!['beta']} | 最大回撤估算 ${portfolio!['max_drawdown_90d_est']}%'),
+              ],
+            ),
+          ),
           if (warnings.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('风险提示', style: Theme.of(context).textTheme.titleMedium),
-            ...warnings.map((w) => ListTile(dense: true, title: Text(w.toString()))),
+            SectionHeader(title: '风险提示'),
+            ...warnings.map((w) => GlassCard(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Text(w.toString()),
+                )),
           ],
-          const SizedBox(height: 8),
-          Text('持仓明细', style: Theme.of(context).textTheme.titleMedium),
+          SectionHeader(title: '持仓明细'),
           ...positions.map((p) {
             final m = p as Map<String, dynamic>;
-            return ListTile(
-              title: Text('${m['name']} (${m['code']})'),
-              subtitle: Text('质量 ${m['quality_grade']} | MA20 ${m['ma20']}'),
-              trailing: Text('${m['pl_pct']}%'),
+            return GlassCard(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(
+                title: Text('${m['name']} (${m['code']})'),
+                subtitle: Text('质量 ${m['quality_grade']} | MA20 ${m['ma20']}'),
+                trailing: Text('${m['pl_pct']}%', style: TextStyle(color: priceColor((m['pl_pct'] as num?)?.toDouble() ?? 0))),
+              ),
             );
           }),
         ],
@@ -192,12 +224,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
     final items = anomalies!['anomalies'] as List? ?? [];
     return RefreshIndicator(
       onRefresh: _load,
+      color: AppColors.primary,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: AppBreakpoints.pagePadding(context),
         itemCount: items.length,
         itemBuilder: (_, i) {
           final m = items[i] as Map<String, dynamic>;
-          return Card(
+          return GlassCard(
+            margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               title: Text('${m['name']} (${m['code']}) ${m['change_pct']}%'),
               subtitle: Text('${(m['anomaly_types'] as List?)?.join(' · ') ?? ''}\n${(m['possible_causes'] as List?)?.first ?? ''}'),
@@ -216,24 +250,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> with SingleTickerProvid
     final watch = report!['tomorrow_watchlist'] as List? ?? [];
     return RefreshIndicator(
       onRefresh: _load,
+      color: AppColors.primary,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppBreakpoints.pagePadding(context),
         children: [
           Text('${report!['date']} 复盘', style: Theme.of(context).textTheme.titleLarge),
-          Text('${summary['status']} — ${summary['description']}'),
-          const SizedBox(height: 12),
-          Text('涨幅榜', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          GlassCard(child: Text('${summary['status']} — ${summary['description']}')),
+          SectionHeader(title: '涨幅榜'),
           ...top.take(5).map((e) {
             final m = e as Map<String, dynamic>;
-            return ListTile(title: Text('${m['name']}'), trailing: Text('${m['change_pct']}%'));
+            return GlassCard(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(title: Text('${m['name']}'), trailing: Text('${m['change_pct']}%')),
+            );
           }),
-          const SizedBox(height: 12),
-          Text('明日关注', style: Theme.of(context).textTheme.titleMedium),
+          SectionHeader(title: '明日关注'),
           ...watch.take(10).map((e) {
             final m = e as Map<String, dynamic>;
-            return ListTile(
-              title: Text('${m['name']} (${m['code']})'),
-              subtitle: Text('${m['reason']}'),
+            return GlassCard(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                title: Text('${m['name']} (${m['code']})'),
+                subtitle: Text('${m['reason']}'),
+              ),
             );
           }),
         ],

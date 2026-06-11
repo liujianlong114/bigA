@@ -48,16 +48,19 @@ func main() {
 	provider := market.NewProvider()
 	mktSvc := market.NewService(provider, rdb, repo)
 	sectorSvc := market.NewSectorService(market.NewEastMoney(), rdb)
+	universe := market.NewUniverse()
+	catalog := market.NewCatalog(rdb, repo, universe)
+	sectorSvc.SetCatalog(catalog)
 	rules := sim.NewRules(cfg.RelaxHours)
 	engine := sim.NewEngine(mktSvc, repo, rdb, rules)
 	condMgr := sim.NewConditionalManager(engine, repo, mktSvc)
 	portfolio := sim.NewPortfolio(mktSvc, repo)
 	perfSvc := sim.NewPerformance(repo, mktSvc, portfolio, cfg.InitialCash)
 
-	universe := market.NewUniverse()
 	hub := stream.NewHub()
 	streamEngine := stream.NewEngine(universe, rdb, hub, cfg.RelaxHours)
 	streamEngine.SetConditionalChecker(condMgr)
+	streamEngine.SetCatalog(catalog)
 	streamEngine.Start(ctx)
 
 	go func() {
@@ -92,9 +95,17 @@ func main() {
 	ana := analysis.New(sqlDB, rdb.Client())
 
 	h := &api.Handlers{
-		AccountID:      acct.ID,
+		DefaultAccountID: acct.ID,
+		Auth: api.AuthConfig{
+			Secret:           cfg.JWTSecret,
+			Relax:            cfg.AuthRelax,
+			DefaultAccountID: acct.ID,
+			InitialCash:      cfg.InitialCash,
+			TokenTTL:         7 * 24 * time.Hour,
+		},
 		Market:         &api.MarketAdapter{Svc: mktSvc},
 		SectorSvc:      sectorSvc,
+		Catalog:        catalog,
 		Engine:         engine,
 		Conditional:    condMgr,
 		PerformanceSvc: perfSvc,

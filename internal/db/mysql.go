@@ -38,7 +38,32 @@ func Open(dsn string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if err := applySchemaPatches(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+func applySchemaPatches(db *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	patches := []string{
+		`ALTER TABLE sim_account ADD COLUMN user_id BIGINT NULL`,
+		`ALTER TABLE sim_account ADD UNIQUE KEY uk_user (user_id)`,
+	}
+	for _, p := range patches {
+		if _, err := db.ExecContext(ctx, p); err != nil {
+			msg := err.Error()
+			if strings.Contains(msg, "Duplicate column") ||
+				strings.Contains(msg, "Duplicate key name") ||
+				strings.Contains(msg, "already exists") {
+				continue
+			}
+			return fmt.Errorf("schema patch: %w", err)
+		}
+	}
+	return nil
 }
 
 func ensureDatabase(dsn string) error {

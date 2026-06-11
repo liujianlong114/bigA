@@ -26,6 +26,8 @@ echo "==> bigA smoke test @ $BASE"
 check health /health
 check quote /api/v1/market/quote?code=600519
 check list /api/v1/market/list?page=1&size=5
+check stocks /api/v1/market/stocks?page=1&size=5
+check boards /api/v1/market/boards
 check kline /api/v1/market/kline?code=600519&period=day&limit=10
 check portfolio /api/v1/portfolio
 check ai_state /api/v1/ai/state

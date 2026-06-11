@@ -2,7 +2,6 @@ package market
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/lijianjun/bigA/internal/cache"
 	"github.com/lijianjun/bigA/internal/store"
@@ -46,15 +45,12 @@ func (s *Service) GetQuoteForce(ctx context.Context, code string) (*Quote, error
 }
 
 func (s *Service) persistQuote(ctx context.Context, q *Quote) {
-	payload, _ := json.Marshal(q)
-	_, _ = s.repo.InsertQuoteLog(ctx, store.QuoteRecord{
-		Code: q.Code, Name: q.Name, Source: q.Source,
-		Price: q.Price, Open: q.Open, High: q.High, Low: q.Low,
-		PrevClose: q.PrevClose, ChangePct: q.ChangePct, Volume: q.Volume, Amount: q.Amount,
-		Bid1: q.Bid1, Ask1: q.Ask1, LimitUp: q.LimitUp, LimitDown: q.LimitDown,
-		PayloadJSON: payload,
+	_ = s.repo.UpsertStockSnapshot(ctx, store.StockSnapshot{
+		Code: q.Code, Name: q.Name, Board: q.Board,
+		Price: q.Price, ChangePct: q.ChangePct, PrevClose: q.PrevClose,
+		Volume: q.Volume, Amount: q.Amount, LimitUp: q.LimitUp, LimitDown: q.LimitDown,
+		UpdatedAt: q.UpdatedAt,
 	})
-	_ = s.repo.UpsertStockInfo(ctx, q.Code, q.Name, q.Board)
 }
 
 func (s *Service) List(ctx context.Context, page, pageSize int) ([]StockBrief, int, error) {

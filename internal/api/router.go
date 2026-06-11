@@ -27,42 +27,53 @@ func NewRouter(h *Handlers, ws *WSHandler) http.Handler {
 		r.Get("/health", h.Health)
 
 		r.Route("/api/v1", func(r chi.Router) {
+			// 行情公开；模拟盘接口需登录（SIM_AUTH_RELAX=true 时回退默认账户）
 			r.Get("/market/quote", h.Quote)
 			r.Get("/market/kline", h.Kline)
 			r.Get("/market/quotes/history", h.QuoteHistory)
 			r.Get("/market/list", h.List)
+			r.Get("/market/stocks", h.StockList)
+			r.Get("/market/boards", h.BoardStats)
 			r.Get("/market/search", h.Search)
 			r.Get("/market/sectors", h.Sectors)
 			r.Get("/market/sector/{code}/stocks", h.SectorStocks)
 			r.Get("/market/live/meta", h.LiveMeta)
 			r.Get("/market/live", h.LiveQuote)
 
-			r.Get("/account", h.Account)
-			r.Get("/portfolio", h.Portfolio)
-			r.Get("/performance", h.Performance)
-			r.Get("/orders", h.Orders)
-			r.Get("/trades", h.Trades)
+			r.Post("/auth/register", h.Register)
+			r.Post("/auth/login", h.Login)
 
-			r.Post("/order", h.PlaceOrder)
-			r.Post("/trade/buy", h.Buy)
-			r.Post("/trade/sell", h.Sell)
-			r.Post("/trade/settle", h.Settle)
+			r.Group(func(r chi.Router) {
+				r.Use(h.AuthMiddleware)
+				r.Get("/auth/me", h.Me)
 
-			r.Post("/conditional-order", h.CreateConditionalOrder)
-			r.Get("/conditional-orders", h.ListConditionalOrders)
-			r.Delete("/conditional-order/{id}", h.CancelConditionalOrder)
+				r.Get("/account", h.Account)
+				r.Get("/portfolio", h.Portfolio)
+				r.Get("/performance", h.Performance)
+				r.Get("/orders", h.Orders)
+				r.Get("/trades", h.Trades)
 
-			r.Route("/ai", func(r chi.Router) {
-				r.Get("/state", h.AIState)
 				r.Post("/order", h.PlaceOrder)
-			})
+				r.Post("/trade/buy", h.Buy)
+				r.Post("/trade/sell", h.Sell)
+				r.Post("/trade/settle", h.Settle)
 
-			r.Route("/analysis", func(r chi.Router) {
-				r.Get("/portfolio", h.PortfolioAnalysis)
-				r.Get("/market", h.MarketBreadth)
-				r.Get("/anomalies", h.Anomalies)
-				r.Get("/daily-report", h.DailyReport)
-				r.Get("/predict", h.Predict)
+				r.Post("/conditional-order", h.CreateConditionalOrder)
+				r.Get("/conditional-orders", h.ListConditionalOrders)
+				r.Delete("/conditional-order/{id}", h.CancelConditionalOrder)
+
+				r.Route("/ai", func(r chi.Router) {
+					r.Get("/state", h.AIState)
+					r.Post("/order", h.PlaceOrder)
+				})
+
+				r.Route("/analysis", func(r chi.Router) {
+					r.Get("/portfolio", h.PortfolioAnalysis)
+					r.Get("/market", h.MarketBreadth)
+					r.Get("/anomalies", h.Anomalies)
+					r.Get("/daily-report", h.DailyReport)
+					r.Get("/predict", h.Predict)
+				})
 			})
 		})
 	})

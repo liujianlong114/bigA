@@ -194,6 +194,9 @@ func (o *Orchestrator) runSmokeTests(ctx context.Context) []SmokeTestResult {
 		{"health", "/health"},
 		{"quote", "/api/v1/market/quote?code=600519"},
 		{"list", "/api/v1/market/list?page=1&size=5"},
+		{"stocks", "/api/v1/market/stocks?page=1&size=5"},
+		{"boards", "/api/v1/market/boards"},
+		{"auth_login", "/api/v1/auth/login"},
 		{"kline", "/api/v1/market/kline?code=600519&period=day&limit=5"},
 		{"live_meta", "/api/v1/market/live/meta"},
 		{"portfolio", "/api/v1/portfolio"},
@@ -212,7 +215,13 @@ func (o *Orchestrator) runSmokeTests(ctx context.Context) []SmokeTestResult {
 	var out []SmokeTestResult
 	for _, t := range tests {
 		url := o.cfg.BaseURL + t.path
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		var req *http.Request
+		if t.name == "auth_login" {
+			req, _ = http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+		} else {
+			req, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		}
 		resp, err := client.Do(req)
 		r := SmokeTestResult{Name: t.name, Path: t.path}
 		if err != nil {
@@ -224,6 +233,9 @@ func (o *Orchestrator) runSmokeTests(ctx context.Context) []SmokeTestResult {
 		resp.Body.Close()
 		r.Status = resp.StatusCode
 		r.OK = resp.StatusCode >= 200 && resp.StatusCode < 300
+		if t.name == "auth_login" {
+			r.OK = resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized
+		}
 		if !r.OK {
 			r.Detail = string(body)
 			if len(r.Detail) > 200 {
@@ -256,8 +268,17 @@ var taskRegistry = []struct {
 	{"P1-条件单", "P1", checkPathOK("/api/v1/conditional-orders")},
 	{"P1-绩效分析", "P1", checkPathOK("/api/v1/performance")},
 	{"P1-K线指标", "P1", checkKlineIndicators},
-	{"P2-Docker", "P2", func(o *Orchestrator) bool { return false }},
-	{"P2-用户认证", "P2", func(o *Orchestrator) bool { return false }},
+	{"P2-全市场分页", "P2", checkPathOK("/api/v1/market/stocks?page=1&size=5")},
+	{"P2-用户认证", "P2", checkAuthModule},
+	{"P2-交易日历", "P2", func(o *Orchestrator) bool {
+		_, err := os.Stat(filepath.Join(o.cfg.ProjectRoot, "internal/market/calendar_v2.go"))
+		return err == nil
+	}},
+	{"P2-单元测试", "P2", checkUnitTests},
+	{"P2-Docker", "P2", func(o *Orchestrator) bool {
+		_, err := os.Stat(filepath.Join(o.cfg.ProjectRoot, "docker-compose.yml"))
+		return err == nil
+	}},
 }
 
 func checkPathOK(path string) taskCheck {
@@ -282,6 +303,24 @@ func checkKlineIndicators(o *Orchestrator) bool {
 	}
 	s := string(b)
 	return strings.Contains(s, "calcMACD") && strings.Contains(s, "calcKDJ")
+}
+
+func checkAuthModule(o *Orchestrator) bool {
+	if _, err := os.Stat(filepath.Join(o.cfg.ProjectRoot, "internal/api/auth.go")); err != nil {
+		return false
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(o.cfg.BaseURL+"/api/v1/auth/login", "application/json", strings.NewReader(`{"username":"x","password":"y"}`))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusBadRequest
+}
+
+func checkUnitTests(o *Orchestrator) bool {
+	matches, _ := filepath.Glob(filepath.Join(o.cfg.ProjectRoot, "internal/sim/*_test.go"))
+	return len(matches) >= 2
 }
 
 func (o *Orchestrator) evalProgress() ProgressReport {

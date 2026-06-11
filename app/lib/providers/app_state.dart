@@ -1,14 +1,23 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/live_market_service.dart';
 
 class AppState extends ChangeNotifier {
+  static const _tokenKey = 'biga_auth_token';
+
   final ApiService api;
   final LiveMarketService live = LiveMarketService();
   AppState(this.api);
 
+  bool authReady = false;
+  bool isGuest = false;
+  SimUser? currentUser;
+  bool get isLoggedIn => currentUser != null;
+
   bool loading = false;
+  bool loadingMore = false;
   String? error;
   String? marketWarning;
   bool backendOk = false;
@@ -18,10 +27,26 @@ class AppState extends ChangeNotifier {
   Portfolio? portfolio;
   Quote? selectedQuote;
   KlineData? klineData;
-  List<StockBrief> marketList = [];
+  List<StockBrief> stockList = [];
+  int stockPage = 1;
+  int stockTotal = 0;
+  bool stockHasMore = true;
+  String stockBoard = 'all';
+  String stockSort = 'change_pct';
+  String? stockSearchQ;
+  String? activeSectorCode;
+  String? activeSectorName;
+  Map<String, String> boardNames = {'all': '全部'};
+  Map<String, int> boardCounts = {};
+  List<SectorBrief> hotSectors = [];
+  String hotSectorsSource = '';
+  List<ConditionalOrder> conditionalOrders = [];
+  PerformanceReport? performance;
   List<TradeRecord> trades = [];
   String selectedCode = '600519';
   String klinePeriod = 'day';
+
+  static const int stockPageSize = 50;
 
   @override
   void dispose() {
@@ -30,8 +55,82 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    await _restoreAuth();
+    authReady = true;
+    notifyListeners();
+    if (isLoggedIn || isGuest) {
+      await refreshAll();
+      _startLive();
+    }
+  }
+
+  Future<void> _restoreAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+    if (token == null || token.isEmpty) return;
+    api.setToken(token);
+    try {
+      currentUser = await api.me();
+    } catch (_) {
+      api.setToken(null);
+      await prefs.remove(_tokenKey);
+      currentUser = null;
+    }
+  }
+
+  Future<String?> login(String username, String password) async {
+    try {
+      final auth = await api.login(username, password);
+      currentUser = auth.user;
+      isGuest = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, auth.token);
+      notifyListeners();
+      await refreshAll();
+      _startLive();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> register(String username, String password, {String? nickname}) async {
+    try {
+      final auth = await api.register(username, password, nickname: nickname);
+      currentUser = auth.user;
+      isGuest = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, auth.token);
+      notifyListeners();
+      await refreshAll();
+      _startLive();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<void> enterGuest() async {
+    api.setToken(null);
+    currentUser = null;
+    isGuest = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    notifyListeners();
     await refreshAll();
     _startLive();
+  }
+
+  Future<void> logout() async {
+    live.disconnect();
+    api.setToken(null);
+    currentUser = null;
+    isGuest = false;
+    portfolio = null;
+    trades = [];
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    notifyListeners();
   }
 
   void _startLive() {
@@ -49,15 +148,17 @@ class AppState extends ChangeNotifier {
           prevClose: selectedQuote?.prevClose ?? s.price,
           limitUp: selectedQuote?.limitUp ?? 0,
           limitDown: selectedQuote?.limitDown ?? 0,
-          board: selectedQuote?.board ?? 'main',
+          board: selectedQuote?.board ?? s.board,
           bid1: selectedQuote?.bid1 ?? 0,
           ask1: selectedQuote?.ask1 ?? 0,
           source: 'live_ws',
         );
       }
-      final sorted = quotes.values.toList()
-        ..sort((a, b) => b.changePct.compareTo(a.changePct));
-      marketList = sorted.take(15).toList();
+      stockList = stockList.map((item) {
+        final live = quotes[item.code];
+        if (live == null) return item;
+        return item.copyWith(price: live.price, changePct: live.changePct);
+      }).toList();
       notifyListeners();
     });
   }
@@ -77,9 +178,14 @@ class AppState extends ChangeNotifier {
         _safe(() => loadPortfolio()),
         _safe(() => loadQuote(selectedCode)),
         _safe(() => loadKline()),
-        _safe(() => loadMarketList()),
+        _safe(() => loadBoardStats()),
+        _safe(() => loadHotSectors()),
+        _safe(() => loadStockList(reset: true)),
         _safe(() => loadTrades()),
+        _safe(() => loadPerformance()),
+        _safe(() => loadConditionalOrders()),
       ]);
+      if (!live.connected) _startLive();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -117,9 +223,147 @@ class AppState extends ChangeNotifier {
     await loadKline();
   }
 
-  Future<void> loadMarketList() async {
-    marketList = await api.listStocks(page: 1, size: 15);
+  Future<void> loadBoardStats() async {
+    final j = await api.boardStats();
+    boardCounts = (j['counts'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) ?? {};
+    boardNames = (j['names'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {'all': '全部'};
     notifyListeners();
+  }
+
+  Future<void> loadHotSectors() async {
+    final page = await api.listSectors(page: 1, size: 10);
+    hotSectors = page.items;
+    hotSectorsSource = page.source;
+    notifyListeners();
+  }
+
+  Future<void> loadStockList({bool reset = false}) async {
+    if (reset) {
+      stockPage = 1;
+      stockHasMore = true;
+      stockList = [];
+    }
+    if (activeSectorCode != null) {
+      final page = await api.listSectorStocks(activeSectorCode!, page: stockPage, size: stockPageSize);
+      stockTotal = page.total;
+      if (reset) {
+        stockList = page.items;
+      } else {
+        stockList = [...stockList, ...page.items];
+      }
+      stockHasMore = stockList.length < stockTotal;
+      notifyListeners();
+      return;
+    }
+    final page = await api.listLiveStocks(
+      page: stockPage,
+      size: stockPageSize,
+      board: stockBoard,
+      sort: stockSort,
+      q: stockSearchQ,
+    );
+    stockTotal = page.total;
+    if (reset) {
+      stockList = page.items;
+    } else {
+      stockList = [...stockList, ...page.items];
+    }
+    stockHasMore = stockList.length < stockTotal;
+    notifyListeners();
+  }
+
+  Future<void> loadMoreStocks() async {
+    if (loadingMore || !stockHasMore) return;
+    loadingMore = true;
+    notifyListeners();
+    try {
+      stockPage++;
+      await loadStockList(reset: false);
+    } finally {
+      loadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setStockBoard(String board) async {
+    activeSectorCode = null;
+    activeSectorName = null;
+    stockBoard = board;
+    await loadStockList(reset: true);
+  }
+
+  Future<void> setStockSort(String sort) async {
+    stockSort = sort;
+    await loadStockList(reset: true);
+  }
+
+  Future<void> searchStockList(String q) async {
+    activeSectorCode = null;
+    activeSectorName = null;
+    stockSearchQ = q.trim().isEmpty ? null : q.trim();
+    await loadStockList(reset: true);
+  }
+
+  Future<void> openSector(SectorBrief sector) async {
+    activeSectorCode = sector.code;
+    activeSectorName = sector.name;
+    stockSearchQ = null;
+    stockBoard = 'all';
+    await loadStockList(reset: true);
+  }
+
+  Future<void> clearSectorView() async {
+    activeSectorCode = null;
+    activeSectorName = null;
+    await loadStockList(reset: true);
+  }
+
+  Future<void> loadPerformance() async {
+    performance = await api.performance();
+    notifyListeners();
+  }
+
+  Future<void> loadConditionalOrders() async {
+    conditionalOrders = await api.listConditionalOrders();
+    notifyListeners();
+  }
+
+  Future<String?> createConditionalOrder({
+    required String code,
+    required String conditionType,
+    required double triggerValue,
+    required String side,
+    required String orderType,
+    required int quantity,
+    double? price,
+    String? remark,
+  }) async {
+    try {
+      await api.createConditionalOrder(
+        code: code,
+        conditionType: conditionType,
+        triggerValue: triggerValue,
+        side: side,
+        orderType: orderType,
+        quantity: quantity,
+        price: price,
+        remark: remark,
+      );
+      await loadConditionalOrders();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> cancelConditionalOrder(int id) async {
+    try {
+      await api.cancelConditionalOrder(id);
+      await loadConditionalOrders();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
   }
 
   Future<void> loadTrades() async {
