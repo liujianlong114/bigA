@@ -8,10 +8,18 @@ func SecID(code string) string {
 	if len(code) != 6 {
 		return ""
 	}
-	if code[0] == '6' || code[0] == '5' {
+	if isShanghaiIndex(code) || code[0] == '6' || code[0] == '5' {
 		return "1." + code
 	}
 	return "0." + code
+}
+
+func isShanghaiIndex(code string) bool {
+	switch code {
+	case "000001", "000010", "000016", "000300", "000688", "000852", "000905":
+		return true
+	}
+	return false
 }
 
 // SinaSymbol 新浪行情前缀：sh/sz
@@ -20,7 +28,7 @@ func SinaSymbol(code string) string {
 	if len(code) != 6 {
 		return ""
 	}
-	if code[0] == '6' || code[0] == '5' {
+	if isShanghaiIndex(code) || code[0] == '6' || code[0] == '5' {
 		return "sh" + code
 	}
 	return "sz" + code

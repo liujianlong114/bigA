@@ -4,6 +4,7 @@ import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/kline_chart.dart';
+import 'analysis_screen.dart';
 import 'trade_screen.dart';
 import 'portfolio_screen.dart';
 import 'history_screen.dart';
@@ -23,6 +24,7 @@ class _HomeShellState extends State<HomeShell> {
     final state = context.watch<AppState>();
     final pages = [
       const MarketScreen(),
+      const AnalysisScreen(),
       const TradeScreen(),
       const PortfolioScreen(),
       const HistoryScreen(),
@@ -61,6 +63,7 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.show_chart), label: '行情'),
+          NavigationDestination(icon: Icon(Icons.analytics), label: '分析'),
           NavigationDestination(icon: Icon(Icons.swap_horiz), label: '交易'),
           NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: '持仓'),
           NavigationDestination(icon: Icon(Icons.receipt_long), label: '记录'),
@@ -214,7 +217,7 @@ class _MarketScreenState extends State<MarketScreen> {
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     const SizedBox(height: 8),
-                    KlineChart(bars: state.klineData?.bars ?? []),
+                    KlineChart(bars: state.klineData?.bars ?? [], height: 420),
                   ],
                 ),
               ),

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/lijianjun/bigA/internal/analysis"
 	"github.com/lijianjun/bigA/internal/api"
 	"github.com/lijianjun/bigA/internal/cache"
 	"github.com/lijianjun/bigA/internal/config"
@@ -46,13 +47,17 @@ func main() {
 
 	provider := market.NewProvider()
 	mktSvc := market.NewService(provider, rdb, repo)
+	sectorSvc := market.NewSectorService(market.NewEastMoney(), rdb)
 	rules := sim.NewRules(cfg.RelaxHours)
 	engine := sim.NewEngine(mktSvc, repo, rdb, rules)
+	condMgr := sim.NewConditionalManager(engine, repo, mktSvc)
 	portfolio := sim.NewPortfolio(mktSvc, repo)
+	perfSvc := sim.NewPerformance(repo, mktSvc, portfolio, cfg.InitialCash)
 
 	universe := market.NewUniverse()
 	hub := stream.NewHub()
 	streamEngine := stream.NewEngine(universe, rdb, hub, cfg.RelaxHours)
+	streamEngine.SetConditionalChecker(condMgr)
 	streamEngine.Start(ctx)
 
 	go func() {
@@ -84,13 +89,19 @@ func main() {
 
 	wsHandler := &api.WSHandler{Hub: hub, Redis: rdb}
 
+	ana := analysis.New(sqlDB, rdb.Client())
+
 	h := &api.Handlers{
-		AccountID:    acct.ID,
-		Market:       &api.MarketAdapter{Svc: mktSvc},
-		Engine:       engine,
-		PortfolioSvc: portfolio,
-		Repo:         repo,
-		LiveRedis:    rdb,
+		AccountID:      acct.ID,
+		Market:         &api.MarketAdapter{Svc: mktSvc},
+		SectorSvc:      sectorSvc,
+		Engine:         engine,
+		Conditional:    condMgr,
+		PerformanceSvc: perfSvc,
+		PortfolioSvc:   portfolio,
+		Repo:           repo,
+		LiveRedis:      rdb,
+		Analyzer:       ana,
 	}
 
 	log.Printf("bigA 大A模拟盘启动 %s", cfg.HTTPAddr)

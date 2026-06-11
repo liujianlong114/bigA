@@ -27,6 +27,10 @@ type LiveQuote struct {
 	Amount    float64 `json:"amount"`
 	Bid1      float64 `json:"bid1"`
 	Ask1      float64 `json:"ask1"`
+	Board     string  `json:"board,omitempty"`
+	LimitUp   float64 `json:"limit_up,omitempty"`
+	LimitDown float64 `json:"limit_down,omitempty"`
+	Turnover  float64 `json:"turnover,omitempty"`
 	UpdatedAt int64   `json:"updated_at"` // unix ms
 }
 
@@ -130,9 +134,17 @@ func (b *BatchFetcher) fetchBatch(ctx context.Context, symbols, codes []string, 
 		if i >= len(codes) {
 			break
 		}
-		q, ok := parseSinaLine(codes[i], u.Name(codes[i]), line)
+		name := u.Name(codes[i])
+		q, ok := parseSinaLine(codes[i], name, line)
 		if !ok {
 			continue
+		}
+		board := DetectBoard(codes[i], name)
+		q.Board = string(board)
+		q.LimitUp, q.LimitDown = CalcLimitPrices(q.PrevClose, board)
+		if q.PrevClose > 0 && q.Volume > 0 {
+			// 估算换手率：成交量(手)*100 / 流通股本未知，用成交额/市值近似省略，此处用振幅代理
+			q.Turnover = float64(q.Volume) / 10000 // 占位，异动模块主要用 volRatio
 		}
 		q.UpdatedAt = now
 		out = append(out, q)

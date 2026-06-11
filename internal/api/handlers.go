@@ -1,22 +1,30 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/lijianjun/bigA/internal/analysis"
 	"github.com/lijianjun/bigA/internal/cache"
+	"github.com/lijianjun/bigA/internal/market"
 	"github.com/lijianjun/bigA/internal/sim"
 	"github.com/lijianjun/bigA/internal/store"
 )
 
 type Handlers struct {
-	AccountID    int64
-	Market       MarketAPI
-	Engine       *sim.Engine
-	PortfolioSvc *sim.Portfolio
-	Repo         *store.Repo
-	LiveRedis    *cache.Redis
+	AccountID      int64
+	Market         MarketAPI
+	SectorSvc      *market.SectorService
+	Engine         *sim.Engine
+	Conditional    *sim.ConditionalManager
+	PerformanceSvc *sim.Performance
+	PortfolioSvc   *sim.Portfolio
+	Repo           *store.Repo
+	LiveRedis      *cache.Redis
+	Analyzer       *analysis.Analyzer
 }
 
 type MarketAPI interface {
@@ -261,4 +269,186 @@ func (h *Handlers) AIState(w http.ResponseWriter, r *http.Request) {
 		resp["portfolio_error"] = portErr.Error()
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// ========== Analysis Handlers ==========
+
+func (h *Handlers) PortfolioAnalysis(w http.ResponseWriter, r *http.Request) {
+	if h.Analyzer == nil {
+		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
+		return
+	}
+	res, err := h.Analyzer.AnalyzePortfolio(r.Context(), h.AccountID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) MarketBreadth(w http.ResponseWriter, r *http.Request) {
+	if h.Analyzer == nil {
+		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
+		return
+	}
+	res, err := h.Analyzer.AnalyzeMarketBreadth(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) Anomalies(w http.ResponseWriter, r *http.Request) {
+	if h.Analyzer == nil {
+		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
+		return
+	}
+	res, err := h.Analyzer.DetectAnomalies(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) DailyReport(w http.ResponseWriter, r *http.Request) {
+	if h.Analyzer == nil {
+		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
+		return
+	}
+	res, err := h.Analyzer.GenerateDailyReport(r.Context(), h.AccountID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) Predict(w http.ResponseWriter, r *http.Request) {
+	if h.Analyzer == nil {
+		writeErr(w, http.StatusServiceUnavailable, "analysis module not available")
+		return
+	}
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		writeErr(w, http.StatusBadRequest, "code is required")
+		return
+	}
+	res, err := h.Analyzer.Predict(r.Context(), code)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) Sectors(w http.ResponseWriter, r *http.Request) {
+	if h.SectorSvc == nil {
+		writeErr(w, http.StatusServiceUnavailable, "sector module not available")
+		return
+	}
+	kind := market.SectorIndustry
+	if r.URL.Query().Get("type") == "concept" {
+		kind = market.SectorConcept
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	res, err := h.SectorSvc.ListSectors(r.Context(), kind, page, size)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (h *Handlers) SectorStocks(w http.ResponseWriter, r *http.Request) {
+	if h.SectorSvc == nil {
+		writeErr(w, http.StatusServiceUnavailable, "sector module not available")
+		return
+	}
+	code := chi.URLParam(r, "code")
+	if code == "" {
+		writeErr(w, http.StatusBadRequest, "sector code is required")
+		return
+	}
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	size, _ := strconv.Atoi(r.URL.Query().Get("size"))
+	res, err := h.SectorSvc.ListSectorStocks(r.Context(), code, page, size)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// ========== Conditional Order Handlers ==========
+
+func (h *Handlers) CreateConditionalOrder(w http.ResponseWriter, r *http.Request) {
+	if h.Conditional == nil {
+		writeErr(w, http.StatusServiceUnavailable, "conditional order module not available")
+		return
+	}
+	var req sim.ConditionalOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	co, err := h.Conditional.Create(r.Context(), h.AccountID, req)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, co)
+}
+
+func (h *Handlers) ListConditionalOrders(w http.ResponseWriter, r *http.Request) {
+	if h.Conditional == nil {
+		writeErr(w, http.StatusServiceUnavailable, "conditional order module not available")
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	items, err := h.Conditional.List(r.Context(), h.AccountID, limit)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if items == nil {
+		items = []store.ConditionalOrder{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *Handlers) CancelConditionalOrder(w http.ResponseWriter, r *http.Request) {
+	if h.Conditional == nil {
+		writeErr(w, http.StatusServiceUnavailable, "conditional order module not available")
+		return
+	}
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if err := h.Conditional.Cancel(r.Context(), h.AccountID, id); err != nil {
+		if err == sql.ErrNoRows {
+			writeErr(w, http.StatusNotFound, "conditional order not found or not pending")
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "cancelled", "id": id})
+}
+
+func (h *Handlers) Performance(w http.ResponseWriter, r *http.Request) {
+	if h.PerformanceSvc == nil {
+		writeErr(w, http.StatusServiceUnavailable, "performance module not available")
+		return
+	}
+	res, err := h.PerformanceSvc.Analyze(r.Context(), h.AccountID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }

@@ -52,6 +52,22 @@ func (r *Redis) SetJSON(ctx context.Context, code string, v any) error {
 	return r.client.Set(ctx, quoteKey(code), b, quoteTTL).Err()
 }
 
+func (r *Redis) GetCacheJSON(ctx context.Context, key string, dest any) bool {
+	b, err := r.client.Get(ctx, key).Bytes()
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal(b, dest) == nil
+}
+
+func (r *Redis) SetCacheJSON(ctx context.Context, key string, v any, ttl time.Duration) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, key, b, ttl).Err()
+}
+
 func (r *Redis) LockTrade(ctx context.Context, accountID int64, ttl time.Duration) (func(), error) {
 	key := fmt.Sprintf("biga:lock:account:%d", accountID)
 	ok, err := r.client.SetNX(ctx, key, "1", ttl).Result()

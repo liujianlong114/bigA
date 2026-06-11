@@ -133,3 +133,28 @@ CREATE TABLE IF NOT EXISTS market_kline (
     UNIQUE KEY uk_code_period_date (code, period, trade_date),
     KEY idx_code_period (code, period, trade_date)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS sim_conditional_order (
+    id                BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account_id        BIGINT NOT NULL,
+    code              CHAR(6) NOT NULL,
+    name              VARCHAR(64) NOT NULL,
+    condition_type    VARCHAR(32) NOT NULL,
+    trigger_value     DECIMAL(12,4) NOT NULL,
+    side              ENUM('buy','sell') NOT NULL,
+    order_type        ENUM('limit','market') NOT NULL,
+    action_price      DECIMAL(12,4) NULL,
+    quantity          INT NOT NULL,
+    status            ENUM('pending','triggering','triggered','failed','cancelled','expired') NOT NULL DEFAULT 'pending',
+    trigger_order_id  BIGINT NULL,
+    trigger_message   VARCHAR(255) NULL,
+    valid_date        DATE NOT NULL,
+    source            VARCHAR(32) NOT NULL DEFAULT 'api',
+    remark            VARCHAR(255) NULL,
+    created_at        DATETIME(3) NOT NULL,
+    updated_at        DATETIME(3) NOT NULL,
+    triggered_at      DATETIME(3) NULL,
+    KEY idx_account_status (account_id, status),
+    KEY idx_pending_date (status, valid_date),
+    KEY idx_code (code)
+) ENGINE=InnoDB;

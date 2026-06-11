@@ -115,4 +115,19 @@ class ApiService {
   Future<void> settle() async {
     await _post('/api/v1/trade/settle', {});
   }
+
+  Future<Map<String, dynamic>> marketAnalysis() async =>
+      _get('/api/v1/analysis/market');
+
+  Future<Map<String, dynamic>> portfolioAnalysis() async =>
+      _get('/api/v1/analysis/portfolio');
+
+  Future<Map<String, dynamic>> anomalies() async =>
+      _get('/api/v1/analysis/anomalies');
+
+  Future<Map<String, dynamic>> dailyReport() async =>
+      _get('/api/v1/analysis/daily-report');
+
+  Future<Map<String, dynamic>> predict(String code) async =>
+      _get('/api/v1/analysis/predict', {'code': code});
 }

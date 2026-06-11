@@ -332,6 +332,22 @@ func (r *Repo) ListTrades(ctx context.Context, accountID int64, limit int) ([]Tr
 		return nil, err
 	}
 	defer rows.Close()
+	return scanTrades(rows)
+}
+
+func (r *Repo) ListTradesAsc(ctx context.Context, accountID int64) ([]Trade, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, account_id, order_id, code, name, side, price, quantity, amount, commission, stamp_tax, transfer_fee, trade_date, traded_at
+		FROM sim_trade WHERE account_id = ? ORDER BY traded_at ASC`, accountID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanTrades(rows)
+}
+
+func scanTrades(rows *sql.Rows) ([]Trade, error) {
 	var out []Trade
 	for rows.Next() {
 		var t Trade

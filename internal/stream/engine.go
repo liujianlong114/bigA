@@ -11,16 +11,22 @@ import (
 	"github.com/lijianjun/bigA/internal/market"
 )
 
-// Engine 交易时段每秒拉全市场行情 → Redis → WS 广播
+// Engine 交易时段每秒拉全市场行情 → Redis → WS 广播 → 条件单检查
 type Engine struct {
-	universe *market.Universe
-	fetcher  *market.BatchFetcher
-	redis    *cache.Redis
-	hub      *Hub
-	relax    bool
-	interval time.Duration
-	seq      atomic.Int64
-	busy     atomic.Bool
+	universe    *market.Universe
+	fetcher     *market.BatchFetcher
+	redis       *cache.Redis
+	hub         *Hub
+	relax       bool
+	interval    time.Duration
+	seq         atomic.Int64
+	busy        atomic.Bool
+	conditional ConditionalChecker
+}
+
+// ConditionalChecker 条件单触发检查
+type ConditionalChecker interface {
+	CheckTriggers(ctx context.Context, quotes []market.LiveQuote)
 }
 
 func NewEngine(u *market.Universe, r *cache.Redis, h *Hub, relax bool) *Engine {
@@ -32,6 +38,10 @@ func NewEngine(u *market.Universe, r *cache.Redis, h *Hub, relax bool) *Engine {
 		relax:    relax,
 		interval: time.Second,
 	}
+}
+
+func (e *Engine) SetConditionalChecker(c ConditionalChecker) {
+	e.conditional = c
 }
 
 func (e *Engine) Start(ctx context.Context) {
@@ -98,6 +108,10 @@ func (e *Engine) tick(ctx context.Context) {
 
 	for _, msg := range BuildQuoteChunks(seq, updatedAt, true, items) {
 		e.hub.Broadcast(msg)
+	}
+
+	if e.conditional != nil {
+		e.conditional.CheckTriggers(ctx, quotes)
 	}
 }
 

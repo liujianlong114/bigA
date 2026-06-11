@@ -32,11 +32,14 @@ func NewRouter(h *Handlers, ws *WSHandler) http.Handler {
 			r.Get("/market/quotes/history", h.QuoteHistory)
 			r.Get("/market/list", h.List)
 			r.Get("/market/search", h.Search)
+			r.Get("/market/sectors", h.Sectors)
+			r.Get("/market/sector/{code}/stocks", h.SectorStocks)
 			r.Get("/market/live/meta", h.LiveMeta)
 			r.Get("/market/live", h.LiveQuote)
 
 			r.Get("/account", h.Account)
 			r.Get("/portfolio", h.Portfolio)
+			r.Get("/performance", h.Performance)
 			r.Get("/orders", h.Orders)
 			r.Get("/trades", h.Trades)
 
@@ -45,9 +48,21 @@ func NewRouter(h *Handlers, ws *WSHandler) http.Handler {
 			r.Post("/trade/sell", h.Sell)
 			r.Post("/trade/settle", h.Settle)
 
+			r.Post("/conditional-order", h.CreateConditionalOrder)
+			r.Get("/conditional-orders", h.ListConditionalOrders)
+			r.Delete("/conditional-order/{id}", h.CancelConditionalOrder)
+
 			r.Route("/ai", func(r chi.Router) {
 				r.Get("/state", h.AIState)
 				r.Post("/order", h.PlaceOrder)
+			})
+
+			r.Route("/analysis", func(r chi.Router) {
+				r.Get("/portfolio", h.PortfolioAnalysis)
+				r.Get("/market", h.MarketBreadth)
+				r.Get("/anomalies", h.Anomalies)
+				r.Get("/daily-report", h.DailyReport)
+				r.Get("/predict", h.Predict)
 			})
 		})
 	})
